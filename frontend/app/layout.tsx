@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { SentryProvider } from '../components/SentryProvider'
 
 export const metadata: Metadata = {
   title: 'Project Tutwiler',
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <SentryProvider>{children}</SentryProvider>
+      </body>
     </html>
   )
 }

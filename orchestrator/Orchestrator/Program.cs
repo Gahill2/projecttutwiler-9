@@ -3,6 +3,25 @@ using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 using VerificationProviders;
 using Services;
 using Models;
+using Sentry;
+
+// Initialize Sentry if DSN is provided
+var sentryDsn = Environment.GetEnvironmentVariable("SENTRY_DSN");
+if (!string.IsNullOrEmpty(sentryDsn))
+{
+    SentrySdk.Init(options =>
+    {
+        options.Dsn = sentryDsn;
+        options.Environment = Environment.GetEnvironmentVariable("APP_ENV") ?? "dev";
+        options.Release = Environment.GetEnvironmentVariable("GIT_SHA");
+        options.TracesSampleRate = 1.0;
+    });
+    
+    SentrySdk.ConfigureScope(scope =>
+    {
+        scope.SetTag("service", "orchestrator");
+    });
+}
 
 var builder = WebApplication.CreateBuilder(args);
 

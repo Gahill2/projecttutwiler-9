@@ -6,10 +6,41 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import json
 
+# Initialize Sentry if DSN is provided
+def init_sentry(service_name: str):
+    """Initialize Sentry if DSN is provided"""
+    sentry_dsn = os.getenv("SENTRY_DSN")
+    if not sentry_dsn:
+        return None
+    
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration
+        
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            integrations=[
+                FastApiIntegration(),
+                LoggingIntegration(level=None, event_level=None),
+            ],
+            traces_sample_rate=1.0,
+            environment=os.getenv("APP_ENV", "dev"),
+            release=os.getenv("GIT_SHA"),
+        )
+        
+        sentry_sdk.set_tag("service", service_name)
+        return sentry_sdk
+    except ImportError:
+        return None
+
 from pinecone_client import get_index
 from adapters.ollama import get_embedding, generate
 # TODO: Uncomment to enable security
 # from security import verify_api_key, verify_timestamp, verify_signature
+
+# Initialize Sentry if DSN is provided
+init_sentry("ai-rag")
 
 app = FastAPI()
 
@@ -106,19 +137,42 @@ async def ingest(request: IngestRequest):
 async def analyze(request: AnalyzeRequest):
     try:
         index = get_index()
-        namespace = request.namespace or "default"
         top_k = request.top_k or 5
         
         # Embed query
         query_embedding = get_embedding(request.text)
         
-        # Query Pinecone
-        results = index.query(
-            vector=query_embedding,
-            top_k=top_k,
-            include_metadata=True,
-            namespace=namespace
-        )
+        # If no namespace specified, search nvd and cisa_kev namespaces
+        if request.namespace:
+            namespaces = [request.namespace]
+        else:
+            namespaces = ["nvd", "cisa_kev"]
+        
+        # Query Pinecone across namespaces and merge results
+        all_matches = []
+        for ns in namespaces:
+            try:
+                results = index.query(
+                    vector=query_embedding,
+                    top_k=top_k,
+                    include_metadata=True,
+                    namespace=ns
+                )
+                all_matches.extend(results.matches)
+            except Exception as e:
+                # If namespace doesn't exist, continue with others
+                continue
+        
+        # Sort by score and take top_k
+        all_matches.sort(key=lambda x: x.score, reverse=True)
+        results_matches = all_matches[:top_k]
+        
+        # Create a mock results object for compatibility
+        class MockResults:
+            def __init__(self, matches):
+                self.matches = matches
+        
+        results = MockResults(results_matches)
         
         # Build context string
         context_parts = []

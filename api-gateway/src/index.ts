@@ -2,6 +2,29 @@ import express from 'express'
 import cors from 'cors'
 import axios from 'axios'
 
+// Initialize Sentry if DSN is provided (optional, will fail silently if not available)
+const initSentry = (serviceName: string) => {
+  const dsn = process.env.SENTRY_DSN
+  if (!dsn) return
+  
+  // Use require with try-catch to avoid TypeScript errors if package not installed
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Sentry = require('@sentry/node')
+    Sentry.init({
+      dsn,
+      environment: process.env.APP_ENV || process.env.NODE_ENV || 'dev',
+      release: process.env.GIT_SHA,
+      tracesSampleRate: 1.0,
+    })
+    Sentry.setTag('service', serviceName)
+  } catch {
+    // Sentry SDK not installed, silently continue
+  }
+}
+
+initSentry('api-gateway')
+
 const app = express()
 const PORT = 7070
 

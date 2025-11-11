@@ -65,6 +65,7 @@ Microservices architecture with Docker, JawsDB MySQL, Pinecone, and Ollama-power
 - **API Gateway**: http://localhost:7070/health
 - **Orchestrator**: http://localhost:8080/health
 - **AI-RAG**: http://localhost:9090/health
+- **CVE Ingestor**: http://localhost:9095/health
 - **ETL-NV**: http://localhost:9101/health
 - **ETL-V**: http://localhost:9102/health
 
@@ -140,8 +141,115 @@ Express TypeScript service that routes requests and provides health checks.
 ### AI-RAG
 FastAPI service for document ingestion and analysis using Ollama embeddings and Pinecone retrieval.
 
+### CVE Ingestor
+FastAPI service that ingests CVE data from public feeds (NVD, CISA KEV, OSV) and stores embeddings in Pinecone. See [CVE Data Feeds](#cve-data-feeds) section below.
+
 ### ETL Services
 Stub services for non-verified (NV) and verified (V) data processing pipelines.
+
+## CVE Data Feeds
+
+The CVE Ingestor service automatically fetches vulnerability data from official public sources and makes it searchable via the AI-RAG service.
+
+### Setup
+
+1. **Ensure Pinecone and Ollama are configured** in `.env`:
+   ```bash
+   PINECONE_API_KEY=your_key
+   PINECONE_INDEX=your_index
+   OLLAMA_URL=http://ollama:11434
+   EMBED_MODEL=nomic-embed-text
+   ```
+
+2. **Configure CVE sources** (optional, defaults work):
+   ```bash
+   NVD_API_BASE=https://services.nvd.nist.gov/rest/json/cves/2.0
+   NVD_API_KEY=  # Optional: raises rate limits from 5 to 50 req/30s
+   CISA_KEV_JSON=https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+   CVE_REFRESH_WINDOW_DAYS=3
+   CVE_AUTORUN=true  # Auto-refresh every 6 hours
+   ```
+
+3. **Start the stack**:
+   ```bash
+   docker compose up --build
+   ```
+
+4. **Seed initial data** (first time):
+   ```bash
+   curl -X POST http://localhost:9095/refresh
+   ```
+
+5. **Check ingestion stats**:
+   ```bash
+   curl http://localhost:9095/stats
+   ```
+
+### Querying CVE Data
+
+The AI-RAG service automatically searches CVE namespaces when no namespace is specified:
+
+```bash
+curl -X POST http://localhost:9090/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Log4j vulnerability", "top_k": 5}'
+```
+
+This searches both `nvd` and `cisa_kev` namespaces by default. To search a specific namespace, include it in the request:
+
+```bash
+curl -X POST http://localhost:9090/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Log4j vulnerability", "namespace": "nvd", "top_k": 5}'
+```
+
+### Data Sources
+
+- **NVD (National Vulnerability Database)**: Official CVE data with CVSS scores, CWE mappings, and vendor/product information
+- **CISA KEV (Known Exploited Vulnerabilities)**: Catalog of vulnerabilities actively exploited in the wild
+- **OSV.dev** (optional): Open source vulnerability database (enable with `OSV_ENABLED=true`)
+
+All data is normalized to a common schema and stored in Pinecone with embeddings for semantic search.
+
+## Error Logging
+
+Optional Sentry integration for error tracking across all services.
+
+### Setup
+
+1. **Get a Sentry DSN** from [sentry.io](https://sentry.io) (free tier available)
+
+2. **Set environment variable**:
+   ```bash
+   SENTRY_DSN=https://your-dsn@sentry.io/project-id
+   APP_ENV=dev  # or production, staging, etc.
+   GIT_SHA=  # Optional: commit SHA for release tracking
+   ```
+
+3. **For frontend**, also set:
+   ```bash
+   NEXT_PUBLIC_SENTRY_DSN=https://your-dsn@sentry.io/project-id
+   ```
+
+### Services with Error Logging
+
+All services support optional Sentry integration:
+
+- **Frontend**: Initializes on client-side if `NEXT_PUBLIC_SENTRY_DSN` is set
+- **API Gateway**: Initializes on startup if `SENTRY_DSN` is set
+- **Orchestrator**: Initializes on startup if `SENTRY_DSN` is set
+- **AI-RAG**: Initializes on startup if `SENTRY_DSN` is set
+- **CVE Ingestor**: Initializes on startup if `SENTRY_DSN` is set
+
+If `SENTRY_DSN` is not set, all services run normally without error tracking (no-op).
+
+### Event Tagging
+
+All Sentry events are automatically tagged with:
+- `service`: Service name (e.g., "ai-rag", "cve-ingestor")
+- `environment`: From `APP_ENV` (default: "dev")
+- `release`: From `GIT_SHA` if available
+- `request_id`: From request headers if available
 
 ## Development Notes
 

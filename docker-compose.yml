@@ -89,6 +89,34 @@ services:
       - ollama_cache:/root/.ollama
     # Optional: comment out if using local Ollama desktop app
 
+  cve-ingestor:
+    build:
+      context: ./cve-ingestor
+      dockerfile: Dockerfile
+    ports:
+      - "9095:9095"
+    environment:
+      - OLLAMA_URL=${OLLAMA_URL}
+      - EMBED_MODEL=${EMBED_MODEL}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+      - PINECONE_INDEX=${PINECONE_INDEX}
+      - NVD_API_BASE=${NVD_API_BASE}
+      - NVD_API_KEY=${NVD_API_KEY}
+      - CISA_KEV_JSON=${CISA_KEV_JSON}
+      - OSV_API_BASE=${OSV_API_BASE}
+      - OSV_ENABLED=${OSV_ENABLED}
+      - CVE_REFRESH_WINDOW_DAYS=${CVE_REFRESH_WINDOW_DAYS}
+      - CVE_AUTORUN=${CVE_AUTORUN}
+      - SENTRY_DSN=${SENTRY_DSN}
+      - APP_ENV=${APP_ENV}
+      - GIT_SHA=${GIT_SHA}
+    env_file:
+      - .env
+    depends_on:
+      - ai-rag
+      - ollama
+
 volumes:
   ollama_cache:
 
