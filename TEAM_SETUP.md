@@ -16,17 +16,16 @@
    ```
 
 2. **Create your `.env` file:**
+   
+   **Option A: Use shared .env file (if team is using same credentials)**
+   - Get the `.env` file from your team lead (via secure sharing method)
+   - Copy it to the project root: `cp /path/to/shared/.env .env`
+   
+   **Option B: Create from template (if using individual credentials)**
    ```bash
    cp .env.sample .env
+   # Then edit .env and add your Pinecone API key
    ```
-
-3. **Add Pinecone API key:**
-   - Get the API key from your team lead (or create your own Pinecone account)
-   - Edit `.env` and add:
-     ```bash
-     PINECONE_API_KEY=your_api_key_here
-     PINECONE_INDEX=cve-index
-     ```
 
 4. **Start all services:**
    ```bash
@@ -151,16 +150,30 @@ docker compose restart frontend
 
 ## Team Collaboration
 
-### Sharing the API Key
-**Option 1: Shared Key (Simpler)**
-- Team lead shares the Pinecone API key securely (password manager, encrypted message)
-- Everyone uses the same key in their `.env` file
-- All data stored in shared index
+### Sharing Configuration
 
-**Option 2: Individual Keys (More Control)**
+**Option 1: Shared .env File (Simplest - Recommended for teams)**
+- Team lead creates a complete `.env` file with all credentials
+- Share the `.env` file securely (password manager, encrypted file share, secure team chat)
+- Each team member copies the shared `.env` file to their project root
+- Everyone uses the same Pinecone API key, database, etc.
+- ✅ Simplest setup
+- ✅ Everyone has identical configuration
+- ⚠️ If one person changes it, others need to update
+
+**Option 2: Shared API Key Only**
+- Team lead shares just the Pinecone API key securely
+- Each person creates their own `.env` from `.env.sample`
+- Everyone adds the same API key
+- ✅ More flexible (can customize other settings)
+- ⚠️ More setup steps
+
+**Option 3: Individual Keys**
 - Each team member creates their own Pinecone account
 - Each person has their own API key
 - Can share the same index name or use separate indexes
+- ✅ Most control and isolation
+- ⚠️ More complex setup
 
 ### Important: Security
 - **NEVER commit `.env` to git** - it contains API keys
