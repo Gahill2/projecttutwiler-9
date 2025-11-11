@@ -1,0 +1,94 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    env_file:
+      - .env
+    depends_on:
+      - api-gateway
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "7070:7070"
+    environment:
+      - PUBLIC_WEB_ORIGIN=${PUBLIC_WEB_ORIGIN}
+      - ORCHESTRATOR_URL=http://orchestrator:8080
+    env_file:
+      - .env
+    depends_on:
+      - orchestrator
+
+  orchestrator:
+    build:
+      context: ./orchestrator/Orchestrator
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - JAWSDB_URL=${JAWSDB_URL}
+      - PUBLIC_WEB_ORIGIN=${PUBLIC_WEB_ORIGIN}
+      - VERIFY_PROVIDER=${VERIFY_PROVIDER}
+      - PERSONA_CLIENT_ID=${PERSONA_CLIENT_ID}
+      - PERSONA_CLIENT_SECRET=${PERSONA_CLIENT_SECRET}
+      - PERSONA_REDIRECT_URI=${PERSONA_REDIRECT_URI}
+      - PERSONA_ENV=${PERSONA_ENV}
+    env_file:
+      - .env
+
+  ai-rag:
+    build:
+      context: ./ai-rag
+      dockerfile: Dockerfile
+    ports:
+      - "9090:9090"
+    environment:
+      - OLLAMA_URL=${OLLAMA_URL}
+      - GEN_MODEL=${GEN_MODEL}
+      - EMBED_MODEL=${EMBED_MODEL}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+      - PINECONE_INDEX=${PINECONE_INDEX}
+      - RAG_SERVICE_KEY=${RAG_SERVICE_KEY}
+      - API_SIGNING_SECRET=${API_SIGNING_SECRET}
+    env_file:
+      - .env
+    depends_on:
+      - ollama
+
+  etl-nv:
+    build:
+      context: ./etl-nv
+      dockerfile: Dockerfile
+    ports:
+      - "9101:9101"
+    env_file:
+      - .env
+
+  etl-v:
+    build:
+      context: ./etl-v
+      dockerfile: Dockerfile
+    ports:
+      - "9102:9102"
+    env_file:
+      - .env
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_cache:/root/.ollama
+    # Optional: comment out if using local Ollama desktop app
+
+volumes:
+  ollama_cache:
+
