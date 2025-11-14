@@ -41,7 +41,7 @@ export default function Home() {
     <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
       <h1 style={{ marginBottom: '2rem' }}>Project Tutwiler</h1>
       
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
         <button
           onClick={checkAPI}
           disabled={loading.api}
@@ -73,6 +73,23 @@ export default function Home() {
         >
           {loading.db ? 'Checking...' : 'Check Database'}
         </button>
+        
+        <a
+          href="/portal"
+          style={{
+            padding: '0.75rem 1.5rem',
+            fontSize: '1rem',
+            cursor: 'pointer',
+            backgroundColor: '#667eea',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            textDecoration: 'none',
+            display: 'inline-block',
+          }}
+        >
+          Security Portal →
+        </a>
       </div>
 
       {apiResult && (

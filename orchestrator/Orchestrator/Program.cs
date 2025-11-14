@@ -100,11 +100,17 @@ else
     modelVersion = "mock";
 }
 
+// Register HttpClient for AI-RAG service
+builder.Services.AddHttpClient();
+
 // Register verification service
 builder.Services.AddScoped<VerificationService>(sp =>
 {
     var db = sp.GetRequiredService<AppDb>();
-    return new VerificationService(db, verifier, modelVersion);
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient();
+    httpClient.Timeout = TimeSpan.FromMinutes(2); // Increase timeout for AI analysis
+    return new VerificationService(db, verifier, modelVersion, httpClient);
 });
 
 builder.Services.AddCors(options =>
@@ -220,6 +226,59 @@ app.MapGet("/user/{id}/status", async (VerificationService verificationService, 
     catch
     {
         return Results.StatusCode(500);
+    }
+});
+
+// API key validation endpoint
+app.MapPost("/portal/validate-api-key", async (
+    HttpContext context,
+    VerificationService verificationService) =>
+{
+    try
+    {
+        var request = await context.Request.ReadFromJsonAsync<Models.ApiKeyValidationRequest>();
+        if (request == null || string.IsNullOrWhiteSpace(request.ApiKey))
+        {
+            return Results.BadRequest(new { error = "API key is required" });
+        }
+
+        var isValid = verificationService.ValidateApiKey(request.ApiKey);
+        return Results.Ok(new { valid = isValid });
+    }
+    catch
+    {
+        return Results.StatusCode(500);
+    }
+});
+
+// Portal submission endpoint
+app.MapPost("/portal/submit", async (
+    HttpContext context,
+    VerificationService verificationService) =>
+{
+    try
+    {
+        var request = await context.Request.ReadFromJsonAsync<Models.PortalSubmitRequest>();
+        if (request == null || string.IsNullOrWhiteSpace(request.Problem))
+        {
+            return Results.BadRequest(new { error = "Problem description is required" });
+        }
+
+        var result = await verificationService.ProcessPortalSubmission(
+            request.Name ?? "",
+            request.Role ?? "",
+            request.Problem,
+            request.ApiKey
+        );
+
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        // Log error with details for debugging
+        Console.WriteLine($"Portal submission error: {ex.GetType().Name}: {ex.Message}");
+        Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        return Results.Json(new { error = ex.Message }, statusCode: 500);
     }
 });
 

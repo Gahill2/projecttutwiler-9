@@ -29,6 +29,7 @@ const app = express()
 const PORT = 7070
 
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://localhost:8080'
+const CVE_INGESTOR_URL = process.env.CVE_INGESTOR_URL || 'http://localhost:9095'
 const PUBLIC_WEB_ORIGIN = process.env.PUBLIC_WEB_ORIGIN || 'http://localhost:3000'
 
 app.use(cors({ origin: PUBLIC_WEB_ORIGIN }))
@@ -112,6 +113,43 @@ app.get('/auth/callback', async (req, res) => {
     } else {
       res.status(500).json({ error: error.message || 'Failed to handle callback' })
     }
+  }
+})
+
+// API key validation endpoint
+app.post('/portal/validate-api-key', async (req, res) => {
+  try {
+    const response = await axios.post(`${ORCHESTRATOR_URL}/portal/validate-api-key`, req.body)
+    res.json(response.data)
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ 
+      error: error.response?.data?.error || error.message || 'Failed to validate API key' 
+    })
+  }
+})
+
+// Portal submission endpoint
+app.post('/portal/submit', async (req, res) => {
+  try {
+    const response = await axios.post(`${ORCHESTRATOR_URL}/portal/submit`, req.body)
+    res.json(response.data)
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ 
+      error: error.response?.data?.error || error.message || 'Failed to submit portal request' 
+    })
+  }
+})
+
+// CVE ingestor routes - proxy to CVE ingestor service
+app.get('/cve-ingestor/cves/recent', async (req, res) => {
+  try {
+    const limit = req.query.limit || 10
+    const response = await axios.get(`${CVE_INGESTOR_URL}/cves/recent?limit=${limit}`)
+    res.json(response.data)
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ 
+      error: error.response?.data?.error || error.message || 'Failed to fetch recent CVEs' 
+    })
   }
 })
 

@@ -21,10 +21,12 @@ services:
     environment:
       - PUBLIC_WEB_ORIGIN=${PUBLIC_WEB_ORIGIN}
       - ORCHESTRATOR_URL=http://orchestrator:8080
+      - CVE_INGESTOR_URL=http://cve-ingestor:9095
     env_file:
       - .env
     depends_on:
       - orchestrator
+      - cve-ingestor
 
   orchestrator:
     build:
@@ -40,6 +42,9 @@ services:
       - PERSONA_CLIENT_SECRET=${PERSONA_CLIENT_SECRET}
       - PERSONA_REDIRECT_URI=${PERSONA_REDIRECT_URI}
       - PERSONA_ENV=${PERSONA_ENV}
+      - AI_RAG_URL=http://ai-rag:9090
+      - ETL_NV_URL=http://etl-nv:9101
+      - ETL_V_URL=http://etl-v:9102
     env_file:
       - .env
 
@@ -69,6 +74,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "9101:9101"
+    environment:
+      - JAWSDB_NV_URL=${JAWSDB_NV_URL}
     env_file:
       - .env
 
@@ -78,6 +85,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "9102:9102"
+    environment:
+      - JAWSDB_V_URL=${JAWSDB_V_URL}
     env_file:
       - .env
 

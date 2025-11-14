@@ -11,7 +11,7 @@ def get_embedding(text: str) -> List[float]:
     response = requests.post(
         f"{OLLAMA_URL}/api/embeddings",
         json={"model": EMBED_MODEL, "prompt": text},
-        timeout=30
+        timeout=120  # Increased timeout for slow systems
     )
     response.raise_for_status()
     return response.json()["embedding"]
@@ -21,7 +21,7 @@ def generate(prompt: str) -> Dict[str, Any]:
     response = requests.post(
         f"{OLLAMA_URL}/api/generate",
         json={"model": GEN_MODEL, "prompt": prompt, "stream": False},
-        timeout=60
+        timeout=180  # Increased timeout for LLM generation
     )
     response.raise_for_status()
     return response.json()

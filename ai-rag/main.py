@@ -87,6 +87,7 @@ class AnalyzeRequest(BaseModel):
     text: str
     top_k: Optional[int] = 5
     namespace: Optional[str] = None
+    include_identity: Optional[bool] = True
 
 def chunk_text(text: str, chunk_size: int = 500) -> List[str]:
     """Simple chunking by character count"""
@@ -136,32 +137,40 @@ async def ingest(request: IngestRequest):
 @app.post("/analyze")
 async def analyze(request: AnalyzeRequest):
     try:
-        index = get_index()
         top_k = request.top_k or 5
         
         # Embed query
         query_embedding = get_embedding(request.text)
         
-        # If no namespace specified, search nvd and cisa_kev namespaces
-        if request.namespace:
-            namespaces = [request.namespace]
-        else:
-            namespaces = ["nvd", "cisa_kev"]
-        
-        # Query Pinecone across namespaces and merge results
+        # Try to query Pinecone, but handle gracefully if not available
         all_matches = []
-        for ns in namespaces:
-            try:
-                results = index.query(
-                    vector=query_embedding,
-                    top_k=top_k,
-                    include_metadata=True,
-                    namespace=ns
-                )
-                all_matches.extend(results.matches)
-            except Exception as e:
-                # If namespace doesn't exist, continue with others
-                continue
+        try:
+            index = get_index()
+            
+            # If no namespace specified, search nvd and cisa_kev namespaces
+            if request.namespace:
+                namespaces = [request.namespace]
+            else:
+                namespaces = ["nvd", "cisa_kev"]
+            
+            # Query Pinecone across namespaces and merge results
+            for ns in namespaces:
+                try:
+                    results = index.query(
+                        vector=query_embedding,
+                        top_k=top_k,
+                        include_metadata=True,
+                        namespace=ns
+                    )
+                    all_matches.extend(results.matches)
+                except Exception as e:
+                    # If namespace doesn't exist, continue with others
+                    continue
+        except Exception as e:
+            # Pinecone not available or not configured - continue without vector search
+            # This allows the system to work even if Pinecone isn't set up yet
+            print(f"Pinecone query failed (continuing without vector search): {e}")
+            all_matches = []
         
         # Sort by score and take top_k
         all_matches.sort(key=lambda x: x.score, reverse=True)
@@ -176,27 +185,39 @@ async def analyze(request: AnalyzeRequest):
         
         # Build context string
         context_parts = []
-        for i, match in enumerate(results.matches):
+        for i, match in enumerate(results_matches):
             metadata = match.metadata or {}
             doc_id = metadata.get("doc_id", "unknown")
             chunk = metadata.get("chunk", "")
             score = match.score
             context_parts.append(f"- doc:{doc_id} chunk:{i} score:{score:.3f}")
         
-        context_str = "\n".join(context_parts)
+        context_str = "\n".join(context_parts) if context_parts else "No CVE context available (Pinecone not configured or empty)"
         
         # Generate with Ollama
-        prompt = f"""Based on the following context, analyze the query and return a JSON response with:
+        # Enhanced prompt that considers user identity and problem description
+        if all_matches:
+            context_instruction = f"Context from CVE databases:\n{context_str}\n\n"
+        else:
+            context_instruction = "Note: CVE database context is not available. Base your decision on the user's description and role.\n\n"
+        
+        prompt = f"""You are a security verification system. Analyze the user's identity and problem description to determine if they should be verified or non-verified.
+
+Consider:
+- User's role and organization credibility
+- Problem description severity and legitimacy
+- Whether the issue matches known security patterns from the context (if available)
+
+{context_instruction}User Query (includes identity and problem):
+{request.text}
+
+Return only valid JSON with:
 - decision: either "verified" or "non_verified"
-- score_bin: a range like "0.5-0.7"
-- reason_codes: an array of short reason strings
+- score_bin: a range like "0.5-0.7" representing confidence
+- reason_codes: an array of short reason strings explaining the decision
 
-Context:
-{context_str}
-
-Query: {request.text}
-
-Return only valid JSON, no other text."""
+Return only valid JSON, no other text. Example format:
+{{"decision": "verified", "score_bin": "0.75-0.85", "reason_codes": ["legitimate_security_concern", "credible_role"]}}"""
         
         gen_response = generate(prompt)
         response_text = gen_response.get("response", "")
@@ -220,7 +241,7 @@ Return only valid JSON, no other text."""
                 result["decision"] = "non_verified"
             if "score_bin" not in result:
                 # Use average similarity score
-                avg_score = sum(m.score for m in results.matches) / len(results.matches) if results.matches else 0.0
+                avg_score = sum(m.score for m in results_matches) / len(results_matches) if results_matches else 0.0
                 result["score_bin"] = f"{avg_score:.2f}-{avg_score + 0.1:.2f}"
             if "reason_codes" not in result:
                 result["reason_codes"] = ["analysis_incomplete"]
@@ -232,11 +253,11 @@ Return only valid JSON, no other text."""
             return result
         except json.JSONDecodeError:
             # Fallback: synthesize from similarity scores
-            avg_score = sum(m.score for m in results.matches) / len(results.matches) if results.matches else 0.0
+            avg_score = sum(m.score for m in results_matches) / len(results_matches) if results_matches else 0.0
             decision = "verified" if avg_score > 0.7 else "non_verified"
             score_bin = f"{avg_score:.2f}-{avg_score + 0.1:.2f}"
             reason_codes = ["llm_parse_failed", "using_similarity_fallback"]
-            
+
             return {
                 "decision": decision,
                 "score_bin": score_bin,
