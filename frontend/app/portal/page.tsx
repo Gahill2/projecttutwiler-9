@@ -28,6 +28,8 @@ export default function Portal() {
       timestamp: new Date()
     }
   ])
+  
+  const DEMO_LOGIN_TEXT = 'DEMO_LOGIN_VERIFIED'
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [collectingInfo, setCollectingInfo] = useState(true)
@@ -78,6 +80,43 @@ export default function Portal() {
     if (!userInput.trim()) return
 
     addMessage('user', userInput)
+
+    // Check for demo login text - always grants verified access
+    const demoLoginText = 'DEMO_LOGIN_VERIFIED'
+    if (userInput.trim() === demoLoginText) {
+      setLoading(true)
+      addMessage('assistant', '✓ Demo login detected. Granting verified access...')
+      
+      // Submit with demo credentials and route directly to verified dashboard
+      try {
+        const response = await fetch(`${API_URL}/portal/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: 'Dr. Sarah Chen',
+            role: 'Senior Security Analyst at BioTech Research Institute',
+            problem: 'CVE-2024-12345: Critical vulnerability in laboratory management system affecting DNA sequencing equipment. Potential for unauthorized access to genetic data and manipulation of research results. Requires immediate patching.',
+            apiKey: apiKey || undefined,
+          }),
+        })
+
+        addMessage('assistant', '✓ Verified access granted. Redirecting to verified dashboard...')
+        setTimeout(() => {
+          router.push('/dashboard/verified')
+        }, 1500)
+      } catch (err) {
+        // Even on error, route to verified dashboard for demo
+        addMessage('assistant', 'Redirecting to verified dashboard...')
+        setTimeout(() => {
+          router.push('/dashboard/verified')
+        }, 1000)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
 
     if (currentStep === 'api_key_check') {
       const lowerInput = userInput.toLowerCase().trim()
@@ -139,6 +178,7 @@ export default function Portal() {
       }, 500)
     }
   }
+
 
   const handleSubmit = async (submissionInfo?: { name: string; role: string; problem: string }) => {
     setLoading(true)
@@ -286,6 +326,88 @@ export default function Portal() {
           }}>
             AI-powered cyberbiosecurity assistant
           </p>
+        </div>
+
+        {/* Demo Login Section - Always Visible */}
+        <div style={{
+          padding: '1.25rem 2rem',
+          backgroundColor: '#e6fffa',
+          borderBottom: '2px solid #38b2ac',
+          borderTop: '1px solid #e2e8f0'
+        }}>
+          <div style={{ 
+            fontWeight: '700', 
+            marginBottom: '1rem', 
+            color: '#234e52',
+            fontSize: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <span>🚀</span>
+            <span>Demo Login (Copy & Paste)</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.75rem 1rem', alignItems: 'start' }}>
+            <div style={{ fontWeight: '600', color: '#234e52' }}>Name:</div>
+            <code style={{
+              backgroundColor: '#ffffff',
+              padding: '0.375rem 0.625rem',
+              borderRadius: '4px',
+              fontFamily: 'monospace',
+              cursor: 'pointer',
+              userSelect: 'all',
+              fontSize: '0.875rem',
+              border: '1px solid #cbd5e0',
+              display: 'block'
+            }}>Dr. Sarah Chen</code>
+            
+            <div style={{ fontWeight: '600', color: '#234e52' }}>Role:</div>
+            <code style={{
+              backgroundColor: '#ffffff',
+              padding: '0.375rem 0.625rem',
+              borderRadius: '4px',
+              fontFamily: 'monospace',
+              cursor: 'pointer',
+              userSelect: 'all',
+              fontSize: '0.875rem',
+              border: '1px solid #cbd5e0',
+              display: 'block'
+            }}>Senior Security Analyst at BioTech Research Institute</code>
+            
+            <div style={{ fontWeight: '600', color: '#234e52' }}>CVE Problem:</div>
+            <code style={{
+              backgroundColor: '#ffffff',
+              padding: '0.5rem',
+              borderRadius: '4px',
+              fontFamily: 'monospace',
+              cursor: 'pointer',
+              userSelect: 'all',
+              fontSize: '0.875rem',
+              display: 'block',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              border: '1px solid #cbd5e0',
+              lineHeight: '1.5'
+            }}>CVE-2024-12345: Critical vulnerability in laboratory management system affecting DNA sequencing equipment. Potential for unauthorized access to genetic data and manipulation of research results. Requires immediate patching.</code>
+          </div>
+          <div style={{ 
+            marginTop: '1rem', 
+            padding: '0.75rem',
+            backgroundColor: '#ffffff',
+            borderRadius: '4px',
+            fontSize: '0.8125rem', 
+            color: '#2d3748',
+            border: '1px solid #cbd5e0'
+          }}>
+            <strong>Quick Login:</strong> Paste <code style={{ 
+              backgroundColor: '#edf2f7', 
+              padding: '0.25rem 0.5rem', 
+              borderRadius: '3px',
+              fontFamily: 'monospace',
+              fontWeight: '600',
+              fontSize: '0.875rem'
+            }}>{DEMO_LOGIN_TEXT}</code> to skip directly to verified dashboard
+          </div>
         </div>
 
         {/* Messages Container */}

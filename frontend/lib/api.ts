@@ -27,3 +27,31 @@ export async function getUserStatus(userId: string) {
   }>(`/user/${userId}/status`)
 }
 
+export async function getAdminAnalytics(apiKey: string) {
+  return apiRequest<{
+    totalUsers: number
+    verifiedUsers: number
+    nonVerifiedUsers: number
+    recentActivity24h: number
+    recentActivity7d: number
+    recentActivity30d: number
+    verificationRate: number
+    recentVerifications: Array<{
+      userId: string
+      createdAt: string
+      scoreBin: string | null
+    }>
+    statusDistribution: Record<string, number>
+  }>(`/admin/analytics?api_key=${encodeURIComponent(apiKey)}`)
+}
+
+export async function getDashboardStats() {
+  return apiRequest<{
+    totalThreats: number
+    criticalAlerts: number
+    verifiedUsers: number
+    activeIssues: number
+    resolvedIssues: number
+  }>(`/admin/analytics/stats`)
+}
+

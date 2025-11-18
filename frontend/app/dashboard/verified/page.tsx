@@ -10,21 +10,33 @@ export default function VerifiedDashboard() {
   const [loading, setLoading] = useState(true)
   const [recentCves, setRecentCves] = useState<any[]>([])
   const [stats, setStats] = useState({
-    totalThreats: 1247,
-    criticalAlerts: 23,
-    verifiedUsers: 156,
-    activeIssues: 8,
-    resolvedIssues: 142
+    totalThreats: 0,
+    criticalAlerts: 0,
+    verifiedUsers: 0,
+    activeIssues: 0,
+    resolvedIssues: 0
   })
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Fetch CVE data
         const cveResponse = await fetch(`${API_URL}/cve-ingestor/cves/recent?limit=10`)
         if (cveResponse.ok) {
           const cveData = await cveResponse.json()
           setRecentCves(cveData.cves || [])
         }
+
+        // Fetch stats from backend (using public stats endpoint if available, otherwise use defaults)
+        // For now, we'll use mock data since we don't have a public stats endpoint
+        // TODO: Add public stats endpoint that doesn't require admin auth
+        setStats({
+          totalThreats: 1247, // Would come from backend
+          criticalAlerts: 23, // Would come from backend
+          verifiedUsers: 156, // Would come from backend
+          activeIssues: 8, // Would come from backend
+          resolvedIssues: 142 // Would come from backend
+        })
       } catch (err) {
         console.error('Error fetching dashboard data:', err)
       } finally {

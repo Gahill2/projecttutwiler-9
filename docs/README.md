@@ -19,21 +19,29 @@ Project Tutwiler provides a secure, AI-driven portal where users can submit secu
 
 ## 🚀 Quick Start
 
-### One-Command Setup & Start
+### For New Users (Recommended)
 
 **Windows:**
-1. **Run the startup wizard:**
+1. **Run the installer:**
+   ```bash
+   install.bat
+   ```
+   This will:
+   - ✅ Check for required software (Docker Desktop)
+   - ✅ Show popup dialogs to guide you through installation
+   - ✅ Help configure your environment
+   - ✅ Optionally start all services
+
+2. **Check service status:**
+   ```bash
+   check-status.bat
+   ```
+   Shows a popup with all service statuses
+
+3. **Start services (if not started during install):**
    ```bash
    start.bat
    ```
-   This opens a GUI wizard that handles everything:
-   - ✅ Step-by-step installation wizard
-   - ✅ Automatic prerequisite checking (Docker, etc.)
-   - ✅ .env file creation with unique API keys
-   - ✅ Service startup and status monitoring
-   - ✅ Professional Windows installer interface
-   - ✅ Provides buttons to open Frontend and Admin pages
-   - ✅ Shows real-time status of all services
 
 **Mac/Linux:**
 ```bash
@@ -67,9 +75,11 @@ If you prefer manual setup, see the [Detailed Setup Guide](docs/README.md).
 
 | Script | Purpose |
 |--------|---------|
-| `start.bat` | **Start here!** Main entry point - launches GUI wizard for setup and startup |
-| `scripts\windows\check-status.bat` | Check service status (command line) |
-| `scripts\generate-admin-key.ps1` | Generate admin API key (GUI) |
+| `install.bat` | **Start here!** Installation wizard with popup dialogs |
+| `check-prerequisites.bat` | Check if all required software is installed |
+| `check-status.bat` | Show popup with service status |
+| `start.bat` | Start all services |
+| `setup.bat` | Initial setup helper |
 
 ### Mac/Linux
 

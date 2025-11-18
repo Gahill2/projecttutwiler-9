@@ -113,6 +113,13 @@ builder.Services.AddScoped<VerificationService>(sp =>
     return new VerificationService(db, verifier, modelVersion, httpClient);
 });
 
+// Register analytics service
+builder.Services.AddScoped<AnalyticsService>(sp =>
+{
+    var db = sp.GetRequiredService<AppDb>();
+    return new AnalyticsService(db);
+});
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -278,6 +285,44 @@ app.MapPost("/portal/submit", async (
         // Log error with details for debugging
         Console.WriteLine($"Portal submission error: {ex.GetType().Name}: {ex.Message}");
         Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        return Results.Json(new { error = ex.Message }, statusCode: 500);
+    }
+});
+
+// Helper function to validate admin API key
+static bool IsAdminApiKeyValid(string? apiKey)
+{
+    if (string.IsNullOrWhiteSpace(apiKey))
+        return false;
+    
+    var adminKeysEnv = Environment.GetEnvironmentVariable("ADMIN_API_KEYS") ?? "";
+    var adminKeys = adminKeysEnv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    
+    return adminKeys.Contains(apiKey);
+}
+
+// Admin analytics endpoint
+app.MapGet("/admin/analytics", async (
+    HttpContext context,
+    AnalyticsService analyticsService) =>
+{
+    // Check for admin API key in header or query parameter
+    var apiKey = context.Request.Headers["X-Admin-API-Key"].FirstOrDefault() 
+                 ?? context.Request.Query["api_key"].FirstOrDefault();
+    
+    if (!IsAdminApiKeyValid(apiKey))
+    {
+        return Results.Unauthorized();
+    }
+
+    try
+    {
+        var analytics = await analyticsService.GetAnalyticsAsync();
+        return Results.Ok(analytics);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Analytics error: {ex.GetType().Name}: {ex.Message}");
         return Results.Json(new { error = ex.Message }, statusCode: 500);
     }
 });

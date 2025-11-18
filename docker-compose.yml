@@ -45,6 +45,7 @@ services:
       - AI_RAG_URL=http://ai-rag:9090
       - ETL_NV_URL=http://etl-nv:9101
       - ETL_V_URL=http://etl-v:9102
+      - ADMIN_API_KEYS=${ADMIN_API_KEYS}
     env_file:
       - .env
 

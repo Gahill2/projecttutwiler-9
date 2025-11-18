@@ -153,6 +153,31 @@ app.get('/cve-ingestor/cves/recent', async (req, res) => {
   }
 })
 
+// Admin analytics route - proxy to orchestrator
+app.get('/admin/analytics', async (req, res) => {
+  try {
+    // Forward admin API key from header or query param
+    const apiKey = req.headers['x-admin-api-key'] || req.query.api_key
+    
+    if (!apiKey) {
+      return res.status(401).json({ error: 'Admin API key required' })
+    }
+    
+    const headers: Record<string, string> = {
+      'X-Admin-API-Key': apiKey as string
+    }
+    
+    // Also pass as query param as fallback
+    const response = await axios.get(`${ORCHESTRATOR_URL}/admin/analytics?api_key=${encodeURIComponent(apiKey as string)}`, { headers })
+    res.json(response.data)
+  } catch (error: any) {
+    console.error('Admin analytics error:', error.message)
+    const status = error.response?.status || 500
+    const errorMessage = error.response?.data?.error || error.message || 'Failed to fetch analytics'
+    res.status(status).json({ error: errorMessage })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`API Gateway running on port ${PORT}`)
 })

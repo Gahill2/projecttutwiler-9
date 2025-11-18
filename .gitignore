@@ -1,19 +1,43 @@
+# Environment variables
 .env
-node_modules
-.next
-dist
-bin
-obj
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.so
-*.egg
-*.egg-info
-.vscode
-.idea
-*.log
-.DS_Store
+.env.local
+.env.*.local
 
+# Development environment templates (keep these committed)
+!.env.development
+!.env.backup
+!.env.sample
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+.next/
+dist/
+build/
+**/bin/
+**/obj/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker
+.docker/
+
+# Temporary files
+*.tmp
+*.temp
+status_temp.json
