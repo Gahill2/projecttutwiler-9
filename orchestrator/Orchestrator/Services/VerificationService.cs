@@ -116,10 +116,17 @@ public class VerificationService
             return false;
         
         // Get valid API keys from environment (comma-separated)
-        var validKeysEnv = Environment.GetEnvironmentVariable("VERIFIED_API_KEYS") ?? "";
-        var validKeys = validKeysEnv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var verifiedKeysEnv = Environment.GetEnvironmentVariable("VERIFIED_API_KEYS") ?? "";
+        var verifiedKeys = verifiedKeysEnv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         
-        return validKeys.Contains(apiKey);
+        // Also check admin keys (admin keys can be used in portal for convenience)
+        var adminKeysEnv = Environment.GetEnvironmentVariable("ADMIN_API_KEYS") ?? "";
+        var adminKeys = adminKeysEnv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        
+        // Combine both lists
+        var allValidKeys = verifiedKeys.Concat(adminKeys).ToList();
+        
+        return allValidKeys.Contains(apiKey);
     }
 
     public async Task<PortalSubmissionResult> ProcessPortalSubmission(string name, string role, string problem, string? apiKey = null)

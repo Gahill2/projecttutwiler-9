@@ -5,6 +5,155 @@ import { useRouter } from 'next/navigation'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7070'
 
+function AIThreatAnalysisForm() {
+  const [threatDescription, setThreatDescription] = useState('')
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState<{
+    recommendations: string[]
+    severity: string
+    priority: string
+  } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleAnalyze = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!threatDescription.trim()) return
+
+    setAnalyzing(true)
+    setError(null)
+    setAnalysisResult(null)
+
+    try {
+      // Submit threat and get AI analysis
+      const response = await fetch(`${API_URL}/portal/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: 'Verified User',
+          role: 'Verified Security Professional',
+          problem: threatDescription,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze threat')
+      }
+
+      const data = await response.json()
+      
+      // Get AI recommendations (this would come from AI-RAG service)
+      // For now, we'll simulate recommendations based on the response
+      const recommendations = [
+        'Immediately isolate affected systems from the network',
+        'Review and update security policies related to this threat',
+        'Notify relevant stakeholders and security team',
+        'Monitor for similar patterns across your infrastructure',
+        'Consider implementing additional security controls'
+      ]
+
+      setAnalysisResult({
+        recommendations,
+        severity: data.score_bin ? 'High' : 'Medium',
+        priority: 'High Priority'
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to analyze threat')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  return (
+    <div>
+      <form onSubmit={handleAnalyze}>
+        <textarea
+          value={threatDescription}
+          onChange={(e) => setThreatDescription(e.target.value)}
+          placeholder="Describe the security threat you want analyzed..."
+          disabled={analyzing}
+          style={{
+            width: '100%',
+            minHeight: '120px',
+            padding: '0.75rem',
+            border: '2px solid #e5e7eb',
+            borderRadius: '6px',
+            fontSize: '0.9375rem',
+            fontFamily: 'inherit',
+            resize: 'vertical',
+            marginBottom: '0.75rem'
+          }}
+        />
+        {error && (
+          <div style={{
+            padding: '0.75rem',
+            backgroundColor: '#fee2e2',
+            border: '1px solid #fca5a5',
+            borderRadius: '6px',
+            color: '#991b1b',
+            marginBottom: '0.75rem',
+            fontSize: '0.875rem'
+          }}>
+            {error}
+          </div>
+        )}
+        <button
+          type="submit"
+          disabled={!threatDescription.trim() || analyzing}
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            fontSize: '0.875rem',
+            fontWeight: '600',
+            backgroundColor: (!threatDescription.trim() || analyzing) ? '#9ca3af' : '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: (!threatDescription.trim() || analyzing) ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {analyzing ? 'Analyzing with AI...' : 'Analyze Threat with AI'}
+        </button>
+      </form>
+
+      {analysisResult && (
+        <div style={{
+          marginTop: '1.5rem',
+          padding: '1.5rem',
+          backgroundColor: '#f0fdf4',
+          borderRadius: '6px',
+          border: '1px solid #86efac'
+        }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: '700', color: '#166534', marginBottom: '1rem' }}>
+            AI Analysis Results
+          </h3>
+          <div style={{ marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Severity:</span>
+              <span style={{ fontSize: '0.875rem', color: '#ef4444', fontWeight: '600' }}>{analysisResult.severity}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Priority:</span>
+              <span style={{ fontSize: '0.875rem', color: '#f59e0b', fontWeight: '600' }}>{analysisResult.priority}</span>
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#166534', marginBottom: '0.75rem' }}>
+              Recommended Actions:
+            </div>
+            <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#166534', fontSize: '0.875rem', lineHeight: '1.8' }}>
+              {analysisResult.recommendations.map((rec, idx) => (
+                <li key={idx}>{rec}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function VerifiedDashboard() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -86,21 +235,38 @@ export default function VerifiedDashboard() {
               Comprehensive threat intelligence and security management
             </p>
           </div>
-          <button
-            onClick={() => router.push('/portal')}
-            style={{
-              padding: '0.625rem 1.25rem',
-              fontSize: '0.875rem',
-              fontWeight: '600',
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
-          >
-            + Report Security Issue
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button
+              onClick={() => router.push('/dashboard/non-verified')}
+              style={{
+                padding: '0.625rem 1.25rem',
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                backgroundColor: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              View Non-Verified Dashboard
+            </button>
+            <button
+              onClick={() => router.push('/portal')}
+              style={{
+                padding: '0.625rem 1.25rem',
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              + Report Security Issue
+            </button>
+          </div>
         </div>
 
         {/* Key Metrics Row */}
@@ -255,7 +421,7 @@ export default function VerifiedDashboard() {
             </div>
           </div>
 
-          {/* Security Issue Reporting */}
+          {/* AI Threat Analysis */}
           <div style={{
             backgroundColor: 'white',
             borderRadius: '8px',
@@ -263,7 +429,7 @@ export default function VerifiedDashboard() {
             boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
           }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1f2937', marginBottom: '1.5rem' }}>
-              Report Security Issue
+              AI Threat Analysis
             </h2>
             <div style={{
               padding: '1.5rem',
@@ -273,28 +439,13 @@ export default function VerifiedDashboard() {
               marginBottom: '1rem'
             }}>
               <div style={{ color: '#1e40af', fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.5rem' }}>
-                Verified users can post security concerns for AI analysis
+                Submit threats for AI analysis and recommendations
               </div>
               <div style={{ color: '#1e3a8a', fontSize: '0.8125rem', lineHeight: '1.5' }}>
-                Submit detailed security issues that will be analyzed by our AI system. If deemed worthy, your issue will be posted to the community with suggested remediation steps.
+                As a verified user, you can submit security threats and receive AI-powered analysis with actionable recommendations on how to handle them.
               </div>
             </div>
-            <button
-              onClick={() => router.push('/portal')}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                fontSize: '0.875rem',
-                fontWeight: '600',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              Submit New Security Issue
-            </button>
+            <AIThreatAnalysisForm />
           </div>
         </div>
 

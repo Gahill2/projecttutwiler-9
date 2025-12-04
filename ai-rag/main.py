@@ -201,9 +201,15 @@ async def analyze(request: AnalyzeRequest):
         else:
             context_instruction = "Note: CVE database context is not available. Base your decision on the user's description and role.\n\n"
         
-        prompt = f"""You are a security verification system. Analyze the user's identity and problem description to determine if they should be verified or non-verified.
+        prompt = f"""You are a security verification system. Your purpose is to:
+1. Verify the user is a real human (not a bot)
+2. Verify they have a legitimate security threat (not spam or fake)
+
+Analyze the user's identity and problem description to determine if they should be verified or non-verified.
 
 Consider:
+- Is this a real human? (Check for bot-like patterns, spam indicators)
+- Is this a legitimate security threat? (Check for real security concerns vs generic spam)
 - User's role and organization credibility
 - Problem description severity and legitimacy
 - Whether the issue matches known security patterns from the context (if available)
@@ -214,10 +220,10 @@ Consider:
 Return only valid JSON with:
 - decision: either "verified" or "non_verified"
 - score_bin: a range like "0.5-0.7" representing confidence
-- reason_codes: an array of short reason strings explaining the decision
+- reason_codes: an array of short reason strings explaining the decision (e.g., "human_verified", "legitimate_threat", "bot_detected", "spam_detected")
 
 Return only valid JSON, no other text. Example format:
-{{"decision": "verified", "score_bin": "0.75-0.85", "reason_codes": ["legitimate_security_concern", "credible_role"]}}"""
+{{"decision": "verified", "score_bin": "0.75-0.85", "reason_codes": ["human_verified", "legitimate_security_concern", "credible_role"]}}"""
         
         gen_response = generate(prompt)
         response_text = gen_response.get("response", "")

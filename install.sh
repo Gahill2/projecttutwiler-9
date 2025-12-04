@@ -40,9 +40,9 @@ if [ -f .env ]; then
     fi
 else
     echo ".env file not found. Please configure it before starting services."
-    if [ -f .env.sample ]; then
-        cp .env.sample .env
-        echo "Created .env from .env.sample"
+    if [ -f .env.backup ]; then
+        cp .env.backup .env
+        echo "Created .env from .env.backup"
         read -p "Would you like to edit it now? (y/n) " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then

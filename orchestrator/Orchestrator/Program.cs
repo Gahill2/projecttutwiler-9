@@ -136,8 +136,9 @@ app.UseCors();
 
 app.MapGet("/health", () => new { status = "ok" });
 
-app.MapGet("/db/ping", async (AppDb? db) =>
+app.MapGet("/db/ping", async (HttpContext context) =>
 {
+    var db = context.RequestServices.GetService<AppDb>();
     if (db == null)
     {
         return Results.StatusCode(500);
@@ -250,7 +251,12 @@ app.MapPost("/portal/validate-api-key", async (
         }
 
         var isValid = verificationService.ValidateApiKey(request.ApiKey);
-        return Results.Ok(new { valid = isValid });
+        var isAdmin = IsAdminApiKeyValid(request.ApiKey);
+        
+        return Results.Ok(new { 
+            valid = isValid, 
+            isAdmin = isAdmin 
+        });
     }
     catch
     {

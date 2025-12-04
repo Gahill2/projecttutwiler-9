@@ -5,6 +5,112 @@ import { useRouter } from 'next/navigation'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7070'
 
+function ThreatSubmissionForm() {
+  const [threatDescription, setThreatDescription] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!threatDescription.trim()) return
+
+    setSubmitting(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`${API_URL}/portal/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: 'Non-Verified User',
+          role: 'General User',
+          problem: threatDescription,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to submit threat')
+      }
+
+      setSubmitted(true)
+      setThreatDescription('')
+      setTimeout(() => setSubmitted(false), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit threat')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <textarea
+        value={threatDescription}
+        onChange={(e) => setThreatDescription(e.target.value)}
+        placeholder="Describe your security threat or concern..."
+        disabled={submitting}
+        style={{
+          width: '100%',
+          minHeight: '120px',
+          padding: '0.75rem',
+          border: '2px solid #e5e7eb',
+          borderRadius: '6px',
+          fontSize: '0.9375rem',
+          fontFamily: 'inherit',
+          resize: 'vertical',
+          marginBottom: '0.75rem'
+        }}
+      />
+      {error && (
+        <div style={{
+          padding: '0.75rem',
+          backgroundColor: '#fee2e2',
+          border: '1px solid #fca5a5',
+          borderRadius: '6px',
+          color: '#991b1b',
+          marginBottom: '0.75rem',
+          fontSize: '0.875rem'
+        }}>
+          {error}
+        </div>
+      )}
+      {submitted && (
+        <div style={{
+          padding: '0.75rem',
+          backgroundColor: '#d1fae5',
+          border: '1px solid #6ee7b7',
+          borderRadius: '6px',
+          color: '#065f46',
+          marginBottom: '0.75rem',
+          fontSize: '0.875rem'
+        }}>
+          ✓ Threat submitted successfully (low priority). Our team will review it.
+        </div>
+      )}
+      <button
+        type="submit"
+        disabled={!threatDescription.trim() || submitting}
+        style={{
+          width: '100%',
+          padding: '0.75rem',
+          fontSize: '0.9375rem',
+          fontWeight: '600',
+          backgroundColor: (!threatDescription.trim() || submitting) ? '#9ca3af' : '#f59e0b',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: (!threatDescription.trim() || submitting) ? 'not-allowed' : 'pointer'
+        }}
+      >
+        {submitting ? 'Submitting...' : 'Submit Threat (Low Priority)'}
+      </button>
+    </form>
+  )
+}
+
 export default function NonVerifiedDashboard() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -221,13 +327,54 @@ export default function NonVerifiedDashboard() {
           </div>
         </div>
 
+        {/* Threat Submission Form */}
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          padding: '1.5rem',
+          marginBottom: '2rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        }}>
+          <h2 style={{ 
+            fontSize: '1.125rem', 
+            fontWeight: '700',
+            color: '#374151',
+            marginBottom: '1rem'
+          }}>
+            Submit Security Threat (Low Priority)
+          </h2>
+          <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
+            You can submit security threats here. They will be marked as low priority and reviewed by our team.
+          </p>
+          <ThreatSubmissionForm />
+        </div>
+
         {/* Simple Actions */}
         <div style={{
           backgroundColor: 'white',
           borderRadius: '8px',
           padding: '1.5rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem'
         }}>
+          <button
+            onClick={() => router.push('/dashboard/verified')}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              fontSize: '0.9375rem',
+              fontWeight: '600',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            View Verified Dashboard
+          </button>
           <button
             onClick={() => router.push('/portal')}
             style={{
@@ -242,7 +389,7 @@ export default function NonVerifiedDashboard() {
               cursor: 'pointer'
             }}
           >
-            Submit New Security Concern
+            Go to Portal
           </button>
         </div>
       </div>

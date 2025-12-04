@@ -24,12 +24,16 @@ export default function Portal() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: "Hello! I'm your security support assistant. I'm here to help you with cyberbiosecurity concerns.\n\nIf you have a verified API key, you can enter it now to skip verification. Otherwise, I'll guide you through the verification process.\n\nDo you have an API key? (Type 'yes' to enter one, or 'no' to continue with verification)",
+      content: "Hello! I'm your security support assistant. I'm here to help you with cyberbiosecurity concerns.\n\nOur AI verification system will:\n- Verify you are a real human (not a bot)\n- Verify you have a legitimate security threat (not spam)\n\nIf you have a verified API key, you can enter it now to skip verification. Otherwise, I'll guide you through the verification process.\n\nDo you have an API key? (Type 'yes' to enter one, or 'no' to continue with verification)",
       timestamp: new Date()
     }
   ])
   
   const DEMO_LOGIN_TEXT = 'DEMO_LOGIN_VERIFIED'
+  const DEMO_LOGIN_NON_VERIFIED = 'DEMO_LOGIN_NON_VERIFIED'
+  const DEMO_LOGIN_ADMIN = 'DEMO_LOGIN_ADMIN'
+  const DEMO_VERIFIED_API_KEY = 'demo-verified-key-123'
+  const DEMO_ADMIN_API_KEY = 'demo-admin-key-123'
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [collectingInfo, setCollectingInfo] = useState(true)
@@ -66,13 +70,13 @@ export default function Portal() {
       })
 
       if (!response.ok) {
-        return false
+        return { valid: false, isAdmin: false }
       }
 
       const data = await response.json()
-      return data.valid === true
+      return { valid: data.valid === true, isAdmin: data.isAdmin === true }
     } catch {
-      return false
+      return { valid: false, isAdmin: false }
     }
   }
 
@@ -81,8 +85,26 @@ export default function Portal() {
 
     addMessage('user', userInput)
 
-    // Check for demo login text - always grants verified access
+    // Check for demo login text FIRST - grants verified, non-verified, or admin access
+    // This should work regardless of current step
     const demoLoginText = 'DEMO_LOGIN_VERIFIED'
+    const demoLoginNonVerified = 'DEMO_LOGIN_NON_VERIFIED'
+    const demoLoginAdmin = 'DEMO_LOGIN_ADMIN'
+    
+    if (userInput.trim() === demoLoginAdmin) {
+      setLoading(true)
+      addMessage('assistant', '✓ Admin demo login detected. Redirecting to admin dashboard...')
+      
+      // Store admin API key in localStorage for the admin dashboard
+      localStorage.setItem('admin_api_key', DEMO_ADMIN_API_KEY)
+      
+      setTimeout(() => {
+        router.push('/admin/analytics')
+      }, 1500)
+      setLoading(false)
+      return
+    }
+    
     if (userInput.trim() === demoLoginText) {
       setLoading(true)
       addMessage('assistant', '✓ Demo login detected. Granting verified access...')
@@ -117,6 +139,46 @@ export default function Portal() {
       }
       return
     }
+    
+    if (userInput.trim() === demoLoginNonVerified) {
+      setLoading(true)
+      addMessage('assistant', '✓ Non-verified demo login detected. Routing to non-verified dashboard...')
+      
+      // Submit with non-verified demo credentials
+      try {
+        const response = await fetch(`${API_URL}/portal/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: 'John Doe',
+            role: 'General User',
+            problem: 'General security inquiry about best practices.',
+          }),
+        })
+
+        addMessage('assistant', '✓ Non-verified access granted. Redirecting to non-verified dashboard...')
+        setTimeout(() => {
+          router.push('/dashboard/non-verified')
+        }, 1500)
+      } catch (err) {
+        // Even on error, route to non-verified dashboard for demo
+        addMessage('assistant', 'Redirecting to non-verified dashboard...')
+        setTimeout(() => {
+          router.push('/dashboard/non-verified')
+        }, 1000)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    // Check for demo logins again here (in case they're entered during API key step)
+    if (userInput.trim() === demoLoginText || userInput.trim() === demoLoginNonVerified || userInput.trim() === demoLoginAdmin) {
+      // Already handled above, return early
+      return
+    }
 
     if (currentStep === 'api_key_check') {
       const lowerInput = userInput.toLowerCase().trim()
@@ -133,12 +195,25 @@ export default function Portal() {
       }
     } else if (currentStep === 'api_key') {
       setLoading(true)
-      const isValid = await validateApiKey(userInput)
+      const keyResult = await validateApiKey(userInput)
       setLoading(false)
 
-      if (isValid) {
+      if (keyResult.valid) {
         setApiKey(userInput)
         setApiKeyValidated(true)
+        
+        // If admin key, store it and route directly to admin dashboard
+        if (keyResult.isAdmin) {
+          // Store admin API key in localStorage for the admin dashboard
+          localStorage.setItem('admin_api_key', userInput)
+          addMessage('assistant', '✓ Admin API key validated! Redirecting to admin dashboard...')
+          setTimeout(() => {
+            router.push('/admin/analytics')
+          }, 1500)
+          return
+        }
+        
+        // Otherwise, continue with verified user flow
         addMessage('assistant', '✓ API key validated! You have verified access. Let\'s continue with your information.')
         setCurrentStep('name')
         setTimeout(() => {
@@ -345,68 +420,168 @@ export default function Portal() {
             gap: '0.5rem'
           }}>
             <span>🚀</span>
-            <span>Demo Login (Copy & Paste)</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.75rem 1rem', alignItems: 'start' }}>
-            <div style={{ fontWeight: '600', color: '#234e52' }}>Name:</div>
-            <code style={{
-              backgroundColor: '#ffffff',
-              padding: '0.375rem 0.625rem',
-              borderRadius: '4px',
-              fontFamily: 'monospace',
-              cursor: 'pointer',
-              userSelect: 'all',
-              fontSize: '0.875rem',
-              border: '1px solid #cbd5e0',
-              display: 'block'
-            }}>Dr. Sarah Chen</code>
-            
-            <div style={{ fontWeight: '600', color: '#234e52' }}>Role:</div>
-            <code style={{
-              backgroundColor: '#ffffff',
-              padding: '0.375rem 0.625rem',
-              borderRadius: '4px',
-              fontFamily: 'monospace',
-              cursor: 'pointer',
-              userSelect: 'all',
-              fontSize: '0.875rem',
-              border: '1px solid #cbd5e0',
-              display: 'block'
-            }}>Senior Security Analyst at BioTech Research Institute</code>
-            
-            <div style={{ fontWeight: '600', color: '#234e52' }}>CVE Problem:</div>
-            <code style={{
-              backgroundColor: '#ffffff',
-              padding: '0.5rem',
-              borderRadius: '4px',
-              fontFamily: 'monospace',
-              cursor: 'pointer',
-              userSelect: 'all',
-              fontSize: '0.875rem',
-              display: 'block',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              border: '1px solid #cbd5e0',
-              lineHeight: '1.5'
-            }}>CVE-2024-12345: Critical vulnerability in laboratory management system affecting DNA sequencing equipment. Potential for unauthorized access to genetic data and manipulation of research results. Requires immediate patching.</code>
+            <span>Team Member Demo Logins</span>
           </div>
           <div style={{ 
-            marginTop: '1rem', 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(3, 1fr)', 
+            gap: '1rem',
+            marginBottom: '1rem'
+          }}>
+            {/* Verified Login */}
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#ffffff',
+              borderRadius: '6px',
+              border: '2px solid #10b981'
+            }}>
+              <div style={{ fontWeight: '600', color: '#234e52', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                ✅ Verified Dashboard Access
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: '#2d3748', marginBottom: '0.75rem' }}>
+                Paste this code to access verified dashboard:
+              </div>
+              <code style={{ 
+                backgroundColor: '#edf2f7', 
+                padding: '0.5rem', 
+                borderRadius: '4px',
+                fontFamily: 'monospace',
+                fontWeight: '600',
+                fontSize: '0.875rem',
+                display: 'block',
+                cursor: 'pointer',
+                userSelect: 'all',
+                border: '1px solid #cbd5e0'
+              }}>{DEMO_LOGIN_TEXT}</code>
+            </div>
+            
+            {/* Non-Verified Login */}
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#ffffff',
+              borderRadius: '6px',
+              border: '2px solid #f59e0b'
+            }}>
+              <div style={{ fontWeight: '600', color: '#234e52', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                ⏳ Non-Verified Dashboard Access
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: '#2d3748', marginBottom: '0.75rem' }}>
+                Paste this code to access non-verified dashboard:
+              </div>
+              <code style={{ 
+                backgroundColor: '#edf2f7', 
+                padding: '0.5rem', 
+                borderRadius: '4px',
+                fontFamily: 'monospace',
+                fontWeight: '600',
+                fontSize: '0.875rem',
+                display: 'block',
+                cursor: 'pointer',
+                userSelect: 'all',
+                border: '1px solid #cbd5e0'
+              }}>{DEMO_LOGIN_NON_VERIFIED}</code>
+            </div>
+
+            {/* Admin Login */}
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#ffffff',
+              borderRadius: '6px',
+              border: '2px solid #8b5cf6'
+            }}>
+              <div style={{ fontWeight: '600', color: '#234e52', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                🔐 Admin Dashboard Access
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: '#2d3748', marginBottom: '0.75rem' }}>
+                Paste this code to access admin dashboard:
+              </div>
+              <code style={{ 
+                backgroundColor: '#edf2f7', 
+                padding: '0.5rem', 
+                borderRadius: '4px',
+                fontFamily: 'monospace',
+                fontWeight: '600',
+                fontSize: '0.875rem',
+                display: 'block',
+                cursor: 'pointer',
+                userSelect: 'all',
+                border: '1px solid #cbd5e0'
+              }}>{DEMO_LOGIN_ADMIN}</code>
+            </div>
+          </div>
+
+          {/* API Keys Section */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '1rem',
+            marginTop: '1rem'
+          }}>
+            {/* Verified API Key */}
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#ffffff',
+              borderRadius: '6px',
+              border: '2px solid #3b82f6'
+            }}>
+              <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                🔑 Verified API Key
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: '#2d3748', marginBottom: '0.75rem' }}>
+                Use this API key to skip verification:
+              </div>
+              <code style={{ 
+                backgroundColor: '#edf2f7', 
+                padding: '0.5rem', 
+                borderRadius: '4px',
+                fontFamily: 'monospace',
+                fontWeight: '600',
+                fontSize: '0.875rem',
+                display: 'block',
+                cursor: 'pointer',
+                userSelect: 'all',
+                border: '1px solid #cbd5e0'
+              }}>{DEMO_VERIFIED_API_KEY}</code>
+            </div>
+
+            {/* Admin API Key */}
+            <div style={{
+              padding: '1rem',
+              backgroundColor: '#ffffff',
+              borderRadius: '6px',
+              border: '2px solid #8b5cf6'
+            }}>
+              <div style={{ fontWeight: '600', color: '#6b21a8', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                🔐 Admin API Key
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: '#2d3748', marginBottom: '0.75rem' }}>
+                Use this for admin dashboard access:
+              </div>
+              <code style={{ 
+                backgroundColor: '#edf2f7', 
+                padding: '0.5rem', 
+                borderRadius: '4px',
+                fontFamily: 'monospace',
+                fontWeight: '600',
+                fontSize: '0.875rem',
+                display: 'block',
+                cursor: 'pointer',
+                userSelect: 'all',
+                border: '1px solid #cbd5e0'
+              }}>{DEMO_ADMIN_API_KEY}</code>
+            </div>
+          </div>
+
+          <div style={{ 
             padding: '0.75rem',
             backgroundColor: '#ffffff',
             borderRadius: '4px',
             fontSize: '0.8125rem', 
             color: '#2d3748',
-            border: '1px solid #cbd5e0'
+            border: '1px solid #cbd5e0',
+            marginTop: '1rem'
           }}>
-            <strong>Quick Login:</strong> Paste <code style={{ 
-              backgroundColor: '#edf2f7', 
-              padding: '0.25rem 0.5rem', 
-              borderRadius: '3px',
-              fontFamily: 'monospace',
-              fontWeight: '600',
-              fontSize: '0.875rem'
-            }}>{DEMO_LOGIN_TEXT}</code> to skip directly to verified dashboard
+            <strong>💡 Tip:</strong> Team members can use either login code to test both dashboards. You can navigate between them using the buttons on each dashboard. Use the API keys to skip verification or access the admin dashboard.
           </div>
         </div>
 

@@ -1,0 +1,28 @@
+# Cursor AI Rules for Project Tutwiler
+
+## How to Start the Application
+
+### Windows
+Run `start.bat` or `startup-wizard.ps1` - This opens a GUI wizard that handles everything.
+
+### Mac/Linux  
+Run `./setup.sh` then `./start.sh` - Command-line setup and start.
+
+## Key Information
+
+- This is a Docker Compose microservices application
+- All services run in containers
+- `.env` file is created from `.env.backup` template
+- Frontend: http://localhost:3000
+- Admin: http://localhost:3000/admin/analytics
+
+## Demo Access
+- `DEMO_LOGIN_VERIFIED` - Verified dashboard
+- `DEMO_LOGIN_NON_VERIFIED` - Non-verified dashboard
+- `DEMO_LOGIN_ADMIN` - Admin dashboard
+
+## When Making Changes
+- Frontend: Restart with `docker-compose restart frontend`
+- Backend: Rebuild with `docker-compose build [service] && docker-compose up -d [service]`
+- Always check logs: `docker-compose logs [service]`
+

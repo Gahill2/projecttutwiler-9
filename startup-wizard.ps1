@@ -194,20 +194,15 @@ $dockerRunning = $false
 $servicesRunning = $false
 $termsAccepted = $false
 
-# Check if first run (need to create .env)
+# Check if first run (always show configuration step to create/update .env)
 function Check-FirstRun {
+    # Always show configuration step to ensure .env is always created/updated from .env.backup
+    $script:isFirstRun = $true
+    $script:totalSteps = 6
+    
     $scriptDir = Get-Location | Select-Object -ExpandProperty Path
     $envFile = Join-Path $scriptDir ".env"
-    
-    if (-not (Test-Path $envFile)) {
-        $script:isFirstRun = $true
-        $script:totalSteps = 6
-    } else {
-        $script:isFirstRun = $false
-        $script:totalSteps = 5
-    }
-    
-    Write-Host "Check-FirstRun: .env exists = $(Test-Path $envFile), isFirstRun = $script:isFirstRun, totalSteps = $script:totalSteps"
+    Write-Host "Check-FirstRun: .env exists = $(Test-Path $envFile), isFirstRun = $script:isFirstRun, totalSteps = $script:totalSteps (always 6 to ensure .env is created/updated)"
 }
 
 # Add component to list
@@ -465,13 +460,101 @@ function Show-PrerequisitesStep {
             throw "Docker not responding"
         }
     } catch {
+        # Docker is not running - automatically start it
         $script:dockerRunning = $false
-        Update-Component "Docker Service Status" "[FAIL] Stopped"
-        $progressBar.Value = 100
-        $statusText.Text = "Docker Desktop is not running. Please start it and click Next."
-        $nextButton.Enabled = $true
+        Update-Component "Docker Service Status" "Starting Docker Desktop..."
+        $progressBar.Value = 45
+        $statusText.Text = "Docker Desktop is not running. Starting it automatically..."
         $form.Refresh()
-        return
+        [System.Windows.Forms.Application]::DoEvents()
+        
+        # Try to start Docker Desktop from common locations
+        $dockerPaths = @(
+            "C:\Program Files\Docker\Docker\Docker Desktop.exe",
+            "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe",
+            "$env:LOCALAPPDATA\Docker\Docker Desktop.exe"
+        )
+        
+        $dockerStarted = $false
+        foreach ($dockerPath in $dockerPaths) {
+            if (Test-Path $dockerPath) {
+                try {
+                    Start-Process -FilePath $dockerPath -ErrorAction SilentlyContinue
+                    $dockerStarted = $true
+                    Update-Component "Docker Service Status" "Waiting for Docker to start..."
+                    $statusText.Text = "Docker Desktop is starting (this may take 30-60 seconds)..."
+                    $form.Refresh()
+                    [System.Windows.Forms.Application]::DoEvents()
+                    break
+                } catch {
+                    # Try next path
+                }
+            }
+        }
+        
+        if (-not $dockerStarted) {
+            Update-Component "Docker Service Status" "[FAIL] Could not start Docker"
+            $progressBar.Value = 100
+            $statusText.Text = "Could not find Docker Desktop. Please install it from https://www.docker.com/products/docker-desktop"
+            $nextButton.Enabled = $true
+            $nextButton.Text = "Open Download Page"
+            $form.Refresh()
+            return
+        }
+        
+        # Wait for Docker to be ready (max 60 seconds = 12 attempts * 5 seconds)
+        $waitCount = 0
+        $maxWait = 12
+        while ($waitCount -lt $maxWait) {
+            Start-Sleep -Seconds 5
+            $waitCount++
+            
+            $progressBar.Value = [Math]::Min(54, 45 + ($waitCount * 9 / $maxWait))
+            $statusText.Text = "Waiting for Docker to start... ($waitCount/$maxWait)"
+            $form.Refresh()
+            [System.Windows.Forms.Application]::DoEvents()
+            
+            try {
+                $dockerOutput = docker ps 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    $script:dockerRunning = $true
+                    Update-Component "Docker Service Status" "[OK] Running"
+                    $progressBar.Value = 55
+                    $statusText.Text = "Docker Desktop is now running!"
+                    $form.Refresh()
+                    [System.Windows.Forms.Application]::DoEvents()
+                    Start-Sleep -Milliseconds 500
+                    break
+                }
+            } catch {
+                # Continue waiting
+            }
+        }
+        
+        # Final check
+        if (-not $script:dockerRunning) {
+            try {
+                $dockerOutput = docker ps 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    $script:dockerRunning = $true
+                    Update-Component "Docker Service Status" "[OK] Running"
+                    $progressBar.Value = 55
+                    $statusText.Text = "Docker Desktop is now running!"
+                    $form.Refresh()
+                    [System.Windows.Forms.Application]::DoEvents()
+                    Start-Sleep -Milliseconds 500
+                } else {
+                    throw "Docker still not ready"
+                }
+            } catch {
+                Update-Component "Docker Service Status" "[FAIL] Did not start in time"
+                $progressBar.Value = 100
+                $statusText.Text = "Docker Desktop did not start in time. Please start it manually and click Next."
+                $nextButton.Enabled = $true
+                $form.Refresh()
+                return
+            }
+        }
     }
     
     # Check Docker Compose
@@ -517,19 +600,19 @@ function Show-PrerequisitesStep {
         # Use Get-Location to get current directory (more reliable than MyInvocation)
         $scriptDir = Get-Location | Select-Object -ExpandProperty Path
         $envFile = Join-Path $scriptDir ".env"
-        $envSampleFile = Join-Path $scriptDir ".env.sample"
+        $envBackupFile = Join-Path $scriptDir ".env.backup"
         
         $progressBar.Value = 90
         $form.Refresh()
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 200
         
-        if (Test-Path $envFile) {
-            Update-Component "Configuration File" "[OK] Found"
+        if (Test-Path $envBackupFile) {
+            Update-Component "Configuration File" "[OK] .env.backup found"
             $statusText.Text = "All prerequisites are met. Ready to proceed."
         } else {
-            Update-Component "Configuration File" "[WARN] Not Found"
-            $statusText.Text = ".env file not found. It will be created in the Configuration step."
+            Update-Component "Configuration File" "[WARN] .env.backup not found"
+            $statusText.Text = ".env.backup file not found. It will be required in the Configuration step."
         }
     } catch {
         Update-Component "Configuration File" "[FAIL] Error"
@@ -571,61 +654,50 @@ function Show-ConfigureStep {
     
     $scriptDir = Get-Location | Select-Object -ExpandProperty Path
     $envFile = Join-Path $scriptDir ".env"
-    $envSampleFile = Join-Path $scriptDir ".env.sample"
+    $envBackupFile = Join-Path $scriptDir ".env.backup"
     
-    # Note: No need to generate per-user API keys for developers
-    # Developers share VERIFIED_API_KEYS from .env.backup (stored in .env, not database)
+    # ALWAYS create/overwrite .env from .env.backup
+    # This ensures the .env file is always fresh and matches the template
     
-    if (-not (Test-Path $envFile)) {
-        # Check for .env.backup first, then .env.sample
-        $envBackupFile = Join-Path $scriptDir ".env.backup"
-        $templateFile = $null
+    if (Test-Path $envBackupFile) {
+        $progressBar.Value = 30
+        $form.Refresh()
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 300
         
-        if (Test-Path $envBackupFile) {
-            $templateFile = $envBackupFile
-            Update-Component ".env Configuration File" "Copying from backup..."
-        } elseif (Test-Path $envSampleFile) {
-            $templateFile = $envSampleFile
-            Update-Component ".env Configuration File" "Copying template..."
-        }
+        # Always copy .env.backup to .env - overwrite existing file
+        # This ensures all team members have identical .env files with all variables
+        Update-Component ".env Configuration File" "[INFO] Creating/updating .env from .env.backup..."
+        $form.Refresh()
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 200
         
-        if ($templateFile) {
-            $progressBar.Value = 30
-            $form.Refresh()
-            [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 300
-            
-            # Copy .env.backup directly to .env - keep exact same structure and ALL values
-            # This ensures all team members have identical .env files with all variables
-            Update-Component ".env Configuration File" "[INFO] Copying all values from .env.backup..."
-            $form.Refresh()
-            [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 200
-            
-            # Direct file copy - preserves everything exactly (structure, values, comments, spacing)
-            Copy-Item $templateFile $envFile -Force
-            
-            # Verify the copy was successful
-            if (Test-Path $envFile) {
-                $backupLines = (Get-Content $templateFile).Count
-                $envLines = (Get-Content $envFile).Count
-                if ($backupLines -eq $envLines) {
-                    Update-Component ".env Configuration File" "[OK] Copied from .env.backup ($backupLines lines, all values preserved)"
-                } else {
-                    Update-Component ".env Configuration File" "[WARN] Copied but line count differs ($backupLines vs $envLines)"
-                }
+        # Direct file copy - preserves everything exactly (structure, values, comments, spacing)
+        # Force overwrite if .env already exists
+        Copy-Item $envBackupFile $envFile -Force
+        
+        # Verify the copy was successful
+        if (Test-Path $envFile) {
+            $backupLines = (Get-Content $envBackupFile).Count
+            $envLines = (Get-Content $envFile).Count
+            if ($backupLines -eq $envLines) {
+                Update-Component ".env Configuration File" "[OK] Created/updated from .env.backup ($backupLines lines, all values preserved)"
             } else {
-                Update-Component ".env Configuration File" "[FAIL] Copy failed"
+                Update-Component ".env Configuration File" "[WARN] Copied but line count differs ($backupLines vs $envLines)"
             }
-            Update-Component "API Keys" "[OK] All API keys copied"
-            Update-Component "Environment Variables" "[OK] All variables copied (database URLs, API keys, etc.)"
-            $progressBar.Value = 70
-            $statusText.Text = "Full .env file created! All configuration values (database URLs, API keys, etc.) have been preserved from .env.backup."
-            $form.Refresh()
-            [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 500
-            
-            # Show info about full config file created
+        } else {
+            Update-Component ".env Configuration File" "[FAIL] Copy failed"
+        }
+        Update-Component "API Keys" "[OK] All API keys copied"
+        Update-Component "Environment Variables" "[OK] All variables copied (database URLs, API keys, etc.)"
+        $progressBar.Value = 70
+        $statusText.Text = "Full .env file created/updated! All configuration values (database URLs, API keys, etc.) have been preserved from .env.backup."
+        $form.Refresh()
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 500
+        
+        # Show info about full config file created (only on first creation, not every time)
+        if (-not (Test-Path $envFile -PathType Leaf) -or (Get-Item $envFile).Length -eq 0) {
             $result = [System.Windows.Forms.MessageBox]::Show(
                 "Full configuration file created for development!`n`n" +
                 "WHAT WAS CREATED:`n" +
@@ -656,79 +728,36 @@ function Show-ConfigureStep {
             if ($result -eq "Yes") {
                 Start-Process notepad.exe -ArgumentList $envFile -Wait
             }
-            
-            $progressBar.Value = 90
-        } else {
-            # No template file exists - warn user they need .env.backup
-            Update-Component ".env Configuration File" "[FAIL] No template found"
-            Update-Component "API Keys" "[WARN] Cannot create without .env.backup"
-            Update-Component "Environment Variables" "[FAIL] Missing .env.backup file"
-            $progressBar.Value = 100
-            $statusText.Text = "ERROR: .env.backup file is required!`n`nPlease ensure .env.backup exists in the project root with all required configuration values.`n`nThe wizard cannot create a proper .env file without this template."
-            $form.Refresh()
-            [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 500
-            
-            [System.Windows.Forms.MessageBox]::Show(
-                "Cannot create .env file!`n`nThe .env.backup file is required to create a proper configuration file.`n`nPlease ensure .env.backup exists in the project root with all required values.`n`nContact your team lead if you don't have this file.",
-                "Missing Template File",
-                "OK",
-                "Error"
-            ) | Out-Null
-            
-            $nextButton.Enabled = $false
-            return
         }
+        
+        $progressBar.Value = 90
     } else {
-        # .env already exists - validate it matches .env.backup structure
-        Update-Component ".env Configuration File" "[OK] Already exists"
-        Update-Component "API Keys" "[INFO] Checking structure..."
-        Update-Component "Environment Variables" "[INFO] Validating..."
-        $progressBar.Value = 75
+        # No template file exists - warn user they need .env.backup
+        Update-Component ".env Configuration File" "[FAIL] No template found"
+        Update-Component "API Keys" "[WARN] Cannot create without .env.backup"
+        Update-Component "Environment Variables" "[FAIL] Missing .env.backup file"
+        $progressBar.Value = 100
+        $statusText.Text = "ERROR: .env.backup file is required!`n`nPlease ensure .env.backup exists in the project root with all required configuration values.`n`nThe wizard cannot create a proper .env file without this template."
         $form.Refresh()
         [System.Windows.Forms.Application]::DoEvents()
-        Start-Sleep -Milliseconds 300
+        Start-Sleep -Milliseconds 500
         
-        # Validate existing .env matches .env.backup structure
-        $envBackupFile = Join-Path $scriptDir ".env.backup"
-        if (Test-Path $envBackupFile) {
-            $envContent = Get-Content $envFile -Raw
-            $backupContent = Get-Content $envBackupFile -Raw
-            
-            # Extract variable names from both files
-            $backupVars = [regex]::Matches($backupContent, '(?m)^([A-Z_][A-Z0-9_]*)\s*=') | ForEach-Object { $_.Groups[1].Value }
-            $envVars = [regex]::Matches($envContent, '(?m)^([A-Z_][A-Z0-9_]*)\s*=') | ForEach-Object { $_.Groups[1].Value }
-            
-            # Check if structure matches (excluding USER_API_KEY and Persona vars)
-            $requiredVars = $backupVars | Where-Object { $_ -ne "USER_API_KEY" -and $_ -ne "VERIFY_PROVIDER" -and $_ -notlike "PERSONA_*" }
-            $missingVars = $requiredVars | Where-Object { $envVars -notcontains $_ }
-            
-            if ($missingVars.Count -eq 0) {
-                Update-Component "Environment Variables" "[OK] Structure matches .env.backup"
-                $statusText.Text = ".env file exists and structure matches .env.backup."
-            } else {
-                Update-Component "Environment Variables" "[WARN] Structure differs from .env.backup"
-                $statusText.Text = ".env file exists but structure differs. Missing: $($missingVars -join ', ')"
-            }
-        } else {
-            Update-Component "Environment Variables" "[INFO] No .env.backup to compare"
-            $statusText.Text = ".env file already exists. Skipping creation."
-        }
+        [System.Windows.Forms.MessageBox]::Show(
+            "Cannot create .env file!`n`nThe .env.backup file is required to create a proper configuration file.`n`nPlease ensure .env.backup exists in the project root with all required values.`n`nContact your team lead if you don't have this file.",
+            "Missing Template File",
+            "OK",
+            "Error"
+        ) | Out-Null
         
-        $form.Refresh()
-        [System.Windows.Forms.Application]::DoEvents()
-        Start-Sleep -Milliseconds 300
+        $nextButton.Enabled = $false
+        return
     }
     
     $progressBar.Value = 100
     
-    # Configuration complete - .env file has same structure as .env.backup (copied directly)
+    # Configuration complete - .env file always created/updated from .env.backup
     if (Test-Path $envFile) {
-        if (-not (Test-Path (Join-Path $scriptDir ".env.backup"))) {
-            $statusText.Text = "Configuration complete! .env file ready."
-        } else {
-            $statusText.Text = "Configuration complete! .env file matches .env.backup structure."
-        }
+        $statusText.Text = "Configuration complete! .env file created/updated from .env.backup with all values."
     } else {
         $statusText.Text = "Configuration complete. .env file created."
     }
@@ -793,17 +822,22 @@ function Show-CheckServicesStep {
         # Reset button size
         $nextButton.Size = New-Object System.Drawing.Size(75, 23)
         $nextButton.Location = New-Object System.Drawing.Point(420, 67)
+        $progressBar.Value = 100
+        $nextButton.Enabled = $true
     } else {
+        # Services not running - automatically start them
         $script:servicesRunning = $false
-        $statusText.Text = "$runningCount of $totalCount services are running."
-        $nextButton.Text = "Start Services >"
-        # Make button wider for longer text
-        $nextButton.Size = New-Object System.Drawing.Size(110, 23)
-        $nextButton.Location = New-Object System.Drawing.Point(410, 67)
+        $statusText.Text = "$runningCount of $totalCount services are running. Starting all services automatically..."
+        $progressBar.Value = 100
+        $nextButton.Enabled = $false
+        $form.Refresh()
+        [System.Windows.Forms.Application]::DoEvents()
+        
+        # Automatically proceed to start services
+        Start-Sleep -Milliseconds 1000
+        $script:currentStep = 5
+        Show-StartServicesStep
     }
-    
-    $progressBar.Value = 100
-    $nextButton.Enabled = $true
 }
 
 # Step 5: Start Services
@@ -973,23 +1007,84 @@ function Show-StartServicesStep {
         
         Set-Location $originalLocation
         
+        # Pull Ollama models if Ollama service is running
+        if ($runningCount -ge 7) {  # At least most services are running
+            $ollamaRunning = $false
+            foreach ($service in $services) {
+                if ($service -eq "ollama") {
+                    try {
+                        $status = docker compose ps $service --format "{{.Status}}" 2>&1
+                        if ($LASTEXITCODE -eq 0 -and $status -match "Up") {
+                            $ollamaRunning = $true
+                            break
+                        }
+                    } catch {
+                        # Continue
+                    }
+                }
+            }
+            
+            if ($ollamaRunning) {
+                $progressBar.Value = 80
+                $statusText.Text = "Pulling Ollama models (this may take 10-20 minutes on first run)..."
+                $form.Refresh()
+                [System.Windows.Forms.Application]::DoEvents()
+                
+                # Wait a bit more for Ollama to be fully ready
+                Start-Sleep -Seconds 5
+                
+                $containerName = "projecttutwiler-9-ollama-1"
+                $models = @("llama3.1:8b", "nomic-embed-text")
+                
+                foreach ($model in $models) {
+                    $statusText.Text = "Pulling Ollama model: $model..."
+                    $form.Refresh()
+                    [System.Windows.Forms.Application]::DoEvents()
+                    
+                    try {
+                        $pullOutput = docker exec $containerName ollama pull $model 2>&1
+                        if ($LASTEXITCODE -eq 0) {
+                            $statusText.Text = "Model $model pulled successfully."
+                        } else {
+                            $statusText.Text = "Warning: Failed to pull $model (may already be installed)"
+                        }
+                        $form.Refresh()
+                        [System.Windows.Forms.Application]::DoEvents()
+                    } catch {
+                        $statusText.Text = "Warning: Could not pull $model - you can pull it manually later"
+                        $form.Refresh()
+                        [System.Windows.Forms.Application]::DoEvents()
+                    }
+                }
+                
+                $progressBar.Value = 95
+                $statusText.Text = "Ollama models ready (or already installed)."
+                $form.Refresh()
+                [System.Windows.Forms.Application]::DoEvents()
+            }
+        }
+        
         if ($runningCount -eq 8) {
             $script:servicesRunning = $true
-            $statusText.Text = "All services are running."
-            $nextButton.Text = "Next >"
-            $nextButton.Size = New-Object System.Drawing.Size(75, 23)
-            $nextButton.Location = New-Object System.Drawing.Point(420, 67)
+            $statusText.Text = "All services are running and ready!"
+            $progressBar.Value = 100
+            $form.Refresh()
+            [System.Windows.Forms.Application]::DoEvents()
+            
+            # Automatically proceed to completion step
+            Start-Sleep -Milliseconds 1500
+            $script:currentStep = 6
+            Show-CompleteStep
         } else {
             $script:servicesRunning = $false
             $statusText.Text = "$runningCount of 8 services are running. Some may still be starting..."
             $nextButton.Text = "Next >"
             $nextButton.Size = New-Object System.Drawing.Size(75, 23)
             $nextButton.Location = New-Object System.Drawing.Point(420, 67)
+            $progressBar.Value = 100
+            $nextButton.Enabled = $true
+            $backButton.Enabled = $true
         }
-        
-        $progressBar.Value = 100
-        $nextButton.Enabled = $true
-        $backButton.Enabled = $true
     } else {
         # Failed to start
         foreach ($service in $services) {
@@ -1083,25 +1178,15 @@ $nextButton.Add_Click({
         $script:currentStep = 2
         Update-Step
     } elseif ($currentStep -eq 2) {
-        # Prerequisites -> Configure (if .env doesn't exist) or Check Services
+        # Prerequisites -> ALWAYS go to Configuration step to create/update .env
         if ($nextButton.Text -eq "Open Download Page") {
             Start-Process "https://www.docker.com/products/docker-desktop"
             return
         }
-        # Check if .env exists - if not, ALWAYS go to Configuration step
-        $scriptDir = Get-Location | Select-Object -ExpandProperty Path
-        $envFile = Join-Path $scriptDir ".env"
-        if (-not (Test-Path $envFile)) {
-            # .env doesn't exist - go to Configuration step
-            $script:currentStep = 3
-            $script:isFirstRun = $true
-            $script:totalSteps = 6
-        } else {
-            # .env exists - skip to Check Services
-            $script:currentStep = 4
-            $script:isFirstRun = $false
-            $script:totalSteps = 5
-        }
+        # ALWAYS go to Configuration step to ensure .env is created/updated from .env.backup
+        $script:currentStep = 3
+        $script:isFirstRun = $true
+        $script:totalSteps = 6
         Update-Step
     } elseif ($currentStep -eq 3) {
         # Configuration step completed -> Check Services

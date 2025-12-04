@@ -282,10 +282,10 @@ export default function AdminAnalytics() {
         }}>
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>
-              Admin Analytics Dashboard
+              Bio-ISAC Admin Dashboard
             </h1>
             <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
-              System-wide metrics and user activity
+              Manage verified and non-verified users, threats, and system-wide analytics
             </p>
           </div>
           <button
@@ -394,15 +394,62 @@ export default function AdminAnalytics() {
           </div>
         </div>
 
+        {/* User Management Section */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '1.5rem',
+          marginBottom: '1.5rem'
+        }}>
+          {/* Verified Users */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '1.5rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            borderLeft: '4px solid #10b981'
+          }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1f2937', marginBottom: '1rem' }}>
+              Verified Users
+            </h2>
+            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#10b981', marginBottom: '0.5rem' }}>
+              {analytics.verifiedUsers}
+            </div>
+            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+              Users with verified access and AI threat analysis capabilities
+            </p>
+          </div>
+
+          {/* Non-Verified Users */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '1.5rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            borderLeft: '4px solid #f59e0b'
+          }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1f2937', marginBottom: '1rem' }}>
+              Non-Verified Users
+            </h2>
+            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f59e0b', marginBottom: '0.5rem' }}>
+              {analytics.nonVerifiedUsers}
+            </div>
+            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+              Users with low-priority threat posting access
+            </p>
+          </div>
+        </div>
+
         {/* Recent Verifications */}
         <div style={{
           backgroundColor: 'white',
           borderRadius: '8px',
           padding: '1.5rem',
+          marginBottom: '1.5rem',
           boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
         }}>
           <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1f2937', marginBottom: '1rem' }}>
-            Recent Verifications (Last 7 Days)
+            Recent User Activity (Last 7 Days)
           </h2>
           {analytics.recentVerifications.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -444,22 +491,46 @@ export default function AdminAnalytics() {
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '2rem', color: '#9ca3af' }}>
-              No recent verifications
+              No recent activity
             </div>
           )}
         </div>
 
-        {/* Extension Point Note */}
+        {/* Threat Management Note */}
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          padding: '1.5rem',
+          marginBottom: '1.5rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          borderLeft: '4px solid #8b5cf6'
+        }}>
+          <h2 style={{ fontSize: '1.125rem', fontWeight: '700', color: '#1f2937', marginBottom: '1rem' }}>
+            Threat Management
+          </h2>
+          <div style={{ color: '#6b7280', fontSize: '0.9375rem', lineHeight: '1.6' }}>
+            <p style={{ marginBottom: '0.75rem' }}>
+              <strong>Verified Users:</strong> Can submit threats with AI analysis and recommendations. Threats are high priority.
+            </p>
+            <p style={{ marginBottom: '0.75rem' }}>
+              <strong>Non-Verified Users:</strong> Can submit threats but they are marked as low priority. No AI analysis provided.
+            </p>
+            <p style={{ margin: 0 }}>
+              <strong>Admin Actions:</strong> Review all threats, manage user verification status, and prioritize threat responses from this dashboard.
+            </p>
+          </div>
+        </div>
+
+        {/* Admin Access Info */}
         <div style={{
           marginTop: '2rem',
           padding: '1rem',
-          backgroundColor: '#eff6ff',
+          backgroundColor: '#fef3c7',
           borderRadius: '8px',
-          border: '1px solid #bfdbfe'
+          border: '1px solid #fbbf24'
         }}>
-          <div style={{ fontSize: '0.875rem', color: '#1e40af' }}>
-            <strong>Extension Point:</strong> This page can be extended to embed Power BI dashboards or other analytics tools. 
-            The data comes from the same backend endpoint, ensuring consistency across all analytics views.
+          <div style={{ fontSize: '0.875rem', color: '#92400e' }}>
+            <strong>🔐 Admin Access:</strong> This page is protected by API key authentication. Only Bio-ISAC administrators with valid admin API keys can access this dashboard to manage all users and threats in one place.
           </div>
         </div>
       </div>

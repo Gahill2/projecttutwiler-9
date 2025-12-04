@@ -4,19 +4,23 @@
 
 Guard includes a professional GUI installation and startup wizard that works like typical Windows software installers!
 
-## Windows Startup Wizard
+## Windows Startup Wizard - Single Entry Point for Everything!
 
-The main entry point is `startup-wizard.ps1`, launched via `start.bat`.
+The main entry point is `start.bat`, which launches `startup-wizard.ps1`. **This is the ONLY script you need to run!**
 
-### Features
+### Features - Everything in One Place
 
+- **Automatic Docker startup** - Starts Docker Desktop automatically if it's closed
 - **Step-by-step wizard interface** - Professional installer look and feel
 - **Terms & Conditions** - User acceptance step
 - **Prerequisites checking** - Automatically verifies Docker installation and status
-- **Configuration** - Creates `.env` file from `.env.backup` template
+- **Configuration** - Always creates/updates `.env` file from `.env.backup` template
 - **Service status** - Checks if all services are running
-- **Service startup** - Builds and starts all Docker services
+- **Service startup** - Builds and starts all Docker services (including Ollama)
+- **Ollama model pulling** - Automatically pulls required models
 - **Completion** - Provides links to open Frontend and Admin pages
+
+**No separate setup, configuration, or startup steps needed - the wizard handles it all!**
 
 ### Usage
 
@@ -27,9 +31,11 @@ start.bat
 ```
 
 This launches the GUI wizard which handles:
-- ✅ First-time setup (creates `.env` from `.env.backup`)
-- ✅ Prerequisite verification (Docker, etc.)
-- ✅ Service startup and monitoring
+- ✅ Automatic Docker Desktop startup (if closed)
+- ✅ Always creates/updates `.env` from `.env.backup` (fresh config every time)
+- ✅ Prerequisite verification (Docker, Docker Compose)
+- ✅ Service startup and monitoring (all 8 services including Ollama)
+- ✅ Automatic Ollama model pulling
 - ✅ Real-time status updates
 
 ### Wizard Steps
@@ -41,7 +47,7 @@ This launches the GUI wizard which handles:
    - Docker service status
    - Docker Compose availability
    - `.env` configuration file
-4. **Configuration** - Creates `.env` file from `.env.backup` template (if missing)
+4. **Configuration** - Always creates/updates `.env` file from `.env.backup` template (ensures fresh configuration every time)
 5. **Check Services** - Verifies all 8 services are running
 6. **Start Services** - Builds and starts all Docker services (if needed)
 7. **Complete** - Shows completion message with links to open pages

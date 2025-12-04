@@ -19,11 +19,11 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Create .env from sample if it doesn't exist
+# Create .env from .env.backup if it doesn't exist
 if [ ! -f .env ]; then
-    if [ -f .env.sample ]; then
-        echo "[INFO] Creating .env file from .env.sample..."
-        cp .env.sample .env
+    if [ -f .env.backup ]; then
+        echo "[INFO] Creating .env file from .env.backup..."
+        cp .env.backup .env
         echo "[OK] .env file created!"
         echo ""
         echo "[IMPORTANT] Please edit .env file with your configuration:"
@@ -32,7 +32,7 @@ if [ ! -f .env ]; then
         echo "  - Other service configurations"
         echo ""
     else
-        echo "[WARNING] .env.sample not found. Creating basic .env file..."
+        echo "[WARNING] .env.backup not found. Creating basic .env file..."
         cat > .env << 'EOF'
 # Project Tutwiler Environment Variables
 # Edit these values with your configuration
