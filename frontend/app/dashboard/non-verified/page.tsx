@@ -5,7 +5,176 @@ import { useRouter } from 'next/navigation'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7070'
 
-function ThreatSubmissionForm() {
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date
+}
+
+function AIChatAdvisor() {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      role: 'assistant',
+      content: "Hello! I'm your security advisor. I can help you understand how to use this platform and provide general security guidance. What would you like to know?",
+      timestamp: new Date()
+    }
+  ])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim() || loading) return
+
+    const userMessage: Message = {
+      role: 'user',
+      content: input,
+      timestamp: new Date()
+    }
+    setMessages(prev => [...prev, userMessage])
+    setInput('')
+    setLoading(true)
+
+    try {
+      // Call AI-RAG service for chat (limited to advice/guidance)
+      const response = await fetch(`${API_URL}/ai-rag/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: input,
+          context: 'non_verified_advice',
+          limit_features: true
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to get AI response')
+      }
+
+      const data = await response.json()
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.response || 'I apologize, but I could not process your request. Please try again.',
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (err) {
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: 'I apologize, but I encountered an error. Please try again later.',
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '400px',
+      border: '1px solid #e5e7eb',
+      borderRadius: '8px',
+      backgroundColor: 'white'
+    }}>
+      <div style={{
+        padding: '1rem',
+        borderBottom: '1px solid #e5e7eb',
+        backgroundColor: '#f9fafb',
+        borderTopLeftRadius: '8px',
+        borderTopRightRadius: '8px'
+      }}>
+        <h3 style={{ fontSize: '0.9375rem', fontWeight: '600', color: '#374151', margin: 0 }}>
+          AI Security Advisor (Limited Features)
+        </h3>
+        <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: '0.25rem 0 0 0' }}>
+          Get advice on using the platform and general security guidance
+        </p>
+      </div>
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '1rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem'
+      }}>
+        {messages.map((msg, idx) => (
+          <div
+            key={idx}
+            style={{
+              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '80%',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              backgroundColor: msg.role === 'user' ? '#3b82f6' : '#f3f4f6',
+              color: msg.role === 'user' ? 'white' : '#374151',
+              fontSize: '0.875rem',
+              lineHeight: '1.5'
+            }}
+          >
+            {msg.content}
+          </div>
+        ))}
+        {loading && (
+          <div style={{
+            alignSelf: 'flex-start',
+            padding: '0.75rem',
+            borderRadius: '8px',
+            backgroundColor: '#f3f4f6',
+            color: '#6b7280',
+            fontSize: '0.875rem'
+          }}>
+            Thinking...
+          </div>
+        )}
+      </div>
+      <form onSubmit={handleSend} style={{
+        padding: '1rem',
+        borderTop: '1px solid #e5e7eb',
+        display: 'flex',
+        gap: '0.5rem'
+      }}>
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask me about security or how to use this platform..."
+          disabled={loading}
+          style={{
+            flex: 1,
+            padding: '0.625rem',
+            border: '1px solid #e5e7eb',
+            borderRadius: '6px',
+            fontSize: '0.875rem'
+          }}
+        />
+        <button
+          type="submit"
+          disabled={!input.trim() || loading}
+          style={{
+            padding: '0.625rem 1rem',
+            backgroundColor: (!input.trim() || loading) ? '#9ca3af' : '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: (!input.trim() || loading) ? 'not-allowed' : 'pointer',
+            fontSize: '0.875rem',
+            fontWeight: '600'
+          }}
+        >
+          Send
+        </button>
+      </form>
+    </div>
+  )
+}
+
+function ThreatSubmissionForm({ hasSubmitted, onSubmitted }: { hasSubmitted: boolean; onSubmitted: () => void }) {
   const [threatDescription, setThreatDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -13,7 +182,7 @@ function ThreatSubmissionForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!threatDescription.trim()) return
+    if (!threatDescription.trim() || hasSubmitted) return
 
     setSubmitting(true)
     setError(null)
@@ -37,7 +206,8 @@ function ThreatSubmissionForm() {
 
       setSubmitted(true)
       setThreatDescription('')
-      setTimeout(() => setSubmitted(false), 3000)
+      onSubmitted()
+      setTimeout(() => setSubmitted(false), 5000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit threat')
     } finally {
@@ -47,11 +217,24 @@ function ThreatSubmissionForm() {
 
   return (
     <form onSubmit={handleSubmit}>
+      {hasSubmitted && (
+        <div style={{
+          padding: '0.75rem',
+          backgroundColor: '#fef3c7',
+          border: '1px solid #fbbf24',
+          borderRadius: '6px',
+          color: '#92400e',
+          marginBottom: '0.75rem',
+          fontSize: '0.875rem'
+        }}>
+          ⚠️ You have already submitted 1 issue. As a non-verified user, you can only submit 1 issue. Get verified to submit unlimited issues.
+        </div>
+      )}
       <textarea
         value={threatDescription}
         onChange={(e) => setThreatDescription(e.target.value)}
         placeholder="Describe your security threat or concern..."
-        disabled={submitting}
+        disabled={submitting || hasSubmitted}
         style={{
           width: '100%',
           minHeight: '120px',
@@ -61,7 +244,8 @@ function ThreatSubmissionForm() {
           fontSize: '0.9375rem',
           fontFamily: 'inherit',
           resize: 'vertical',
-          marginBottom: '0.75rem'
+          marginBottom: '0.75rem',
+          opacity: hasSubmitted ? 0.6 : 1
         }}
       />
       {error && (
@@ -92,20 +276,20 @@ function ThreatSubmissionForm() {
       )}
       <button
         type="submit"
-        disabled={!threatDescription.trim() || submitting}
+        disabled={!threatDescription.trim() || submitting || hasSubmitted}
         style={{
           width: '100%',
           padding: '0.75rem',
           fontSize: '0.9375rem',
           fontWeight: '600',
-          backgroundColor: (!threatDescription.trim() || submitting) ? '#9ca3af' : '#f59e0b',
+          backgroundColor: (!threatDescription.trim() || submitting || hasSubmitted) ? '#9ca3af' : '#f59e0b',
           color: 'white',
           border: 'none',
           borderRadius: '6px',
-          cursor: (!threatDescription.trim() || submitting) ? 'not-allowed' : 'pointer'
+          cursor: (!threatDescription.trim() || submitting || hasSubmitted) ? 'not-allowed' : 'pointer'
         }}
       >
-        {submitting ? 'Submitting...' : 'Submit Threat (Low Priority)'}
+        {hasSubmitted ? 'Limit Reached (1/1)' : submitting ? 'Submitting...' : 'Submit Threat (Low Priority)'}
       </button>
     </form>
   )
@@ -114,10 +298,21 @@ function ThreatSubmissionForm() {
 export default function NonVerifiedDashboard() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [hasSubmittedIssue, setHasSubmittedIssue] = useState(false)
 
   useEffect(() => {
+    // Check if user has already submitted an issue (stored in localStorage)
+    const submitted = localStorage.getItem('non_verified_issue_submitted')
+    if (submitted === 'true') {
+      setHasSubmittedIssue(true)
+    }
     setTimeout(() => setLoading(false), 1000)
   }, [])
+
+  const handleIssueSubmitted = () => {
+    setHasSubmittedIssue(true)
+    localStorage.setItem('non_verified_issue_submitted', 'true')
+  }
 
   return (
     <main style={{
@@ -341,12 +536,34 @@ export default function NonVerifiedDashboard() {
             color: '#374151',
             marginBottom: '1rem'
           }}>
-            Submit Security Threat (Low Priority)
+            Submit Security Threat (Low Priority) - 1 Issue Limit
           </h2>
           <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
-            You can submit security threats here. They will be marked as low priority and reviewed by our team.
+            As a non-verified user, you can submit 1 security threat. It will be marked as low priority and reviewed by our team. Get verified to submit unlimited issues with AI analysis.
           </p>
-          <ThreatSubmissionForm />
+          <ThreatSubmissionForm hasSubmitted={hasSubmittedIssue} onSubmitted={handleIssueSubmitted} />
+        </div>
+
+        {/* AI Chat Advisor */}
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          padding: '1.5rem',
+          marginBottom: '2rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        }}>
+          <h2 style={{ 
+            fontSize: '1.125rem', 
+            fontWeight: '700',
+            color: '#374151',
+            marginBottom: '1rem'
+          }}>
+            AI Security Advisor
+          </h2>
+          <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
+            Chat with our AI advisor to get guidance on using the platform and general security advice. Features are limited for non-verified users.
+          </p>
+          <AIChatAdvisor />
         </div>
 
         {/* Simple Actions */}

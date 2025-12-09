@@ -57,6 +57,12 @@ public class AnalyticsService
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync();
 
+        // CVE submission counts
+        var totalCveSubmissions = await _db.CveSubmissions.CountAsync();
+        var verifiedCveSubmissions = await _db.CveSubmissions.CountAsync(c => c.IsVerifiedUser);
+        var pendingCveSubmissions = await _db.CveSubmissions.CountAsync(c => c.Status == "pending");
+        var criticalCveSubmissions = await _db.CveSubmissions.CountAsync(c => c.Severity == "Critical");
+
         return new AnalyticsData
         {
             TotalUsers = totalUsers,
@@ -72,7 +78,11 @@ public class AnalyticsService
                 CreatedAt = r.CreatedAt,
                 ScoreBin = r.ScoreBin
             }).ToList(),
-            StatusDistribution = statusDistribution.ToDictionary(s => s.Status, s => s.Count)
+            StatusDistribution = statusDistribution.ToDictionary(s => s.Status, s => s.Count),
+            TotalCveSubmissions = totalCveSubmissions,
+            VerifiedCveSubmissions = verifiedCveSubmissions,
+            PendingCveSubmissions = pendingCveSubmissions,
+            CriticalCveSubmissions = criticalCveSubmissions
         };
     }
 }
@@ -88,6 +98,10 @@ public class AnalyticsData
     public double VerificationRate { get; set; }
     public List<RecentVerification> RecentVerifications { get; set; } = new();
     public Dictionary<string, int> StatusDistribution { get; set; } = new();
+    public int TotalCveSubmissions { get; set; }
+    public int VerifiedCveSubmissions { get; set; }
+    public int PendingCveSubmissions { get; set; }
+    public int CriticalCveSubmissions { get; set; }
 }
 
 public class RecentVerification

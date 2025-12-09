@@ -8,6 +8,7 @@ public class AppDb : DbContext
     
     public DbSet<AppUser> AppUsers { get; set; }
     public DbSet<StatusAudit> StatusAudits { get; set; }
+    public DbSet<CveSubmission> CveSubmissions { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -26,6 +27,14 @@ public class AppDb : DbContext
             entity.HasKey(e => e.AuditId);
             entity.Property(e => e.Status).HasMaxLength(16);
             entity.Property(e => e.ScoreBin).HasMaxLength(16);
+        });
+        
+        modelBuilder.Entity<CveSubmission>(entity =>
+        {
+            entity.HasKey(e => e.SubmissionId);
+            entity.Property(e => e.Severity).HasMaxLength(16);
+            entity.Property(e => e.Status).HasMaxLength(16);
+            entity.Property(e => e.Description).HasMaxLength(2000);
         });
     }
 }

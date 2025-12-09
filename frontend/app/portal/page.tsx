@@ -12,7 +12,8 @@ interface Message {
 }
 
 interface SubmissionResponse {
-  user_id: string
+  user_id?: string
+  userId?: string  // Backend returns 'UserId' (capital U) in JSON
   status: 'verified' | 'non_verified'
   decision: string
   score_bin?: string
@@ -32,7 +33,6 @@ export default function Portal() {
   const DEMO_LOGIN_TEXT = 'DEMO_LOGIN_VERIFIED'
   const DEMO_LOGIN_NON_VERIFIED = 'DEMO_LOGIN_NON_VERIFIED'
   const DEMO_LOGIN_ADMIN = 'DEMO_LOGIN_ADMIN'
-  const DEMO_VERIFIED_API_KEY = 'demo-verified-key-123'
   const DEMO_ADMIN_API_KEY = 'demo-admin-key-123'
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -124,15 +124,17 @@ export default function Portal() {
           }),
         })
 
-        addMessage('assistant', '✓ Verified access granted. Redirecting to verified dashboard...')
+        localStorage.setItem('user_verified', 'true')
+        addMessage('assistant', '✓ Verified access granted. Redirecting to dashboard...')
         setTimeout(() => {
-          router.push('/dashboard/verified')
+          router.push('/dashboard')
         }, 1500)
       } catch (err) {
         // Even on error, route to verified dashboard for demo
         addMessage('assistant', 'Redirecting to verified dashboard...')
         setTimeout(() => {
-          router.push('/dashboard/verified')
+          localStorage.setItem('user_verified', 'true')
+          router.push('/dashboard')
         }, 1000)
       } finally {
         setLoading(false)
@@ -160,13 +162,15 @@ export default function Portal() {
 
         addMessage('assistant', '✓ Non-verified access granted. Redirecting to non-verified dashboard...')
         setTimeout(() => {
-          router.push('/dashboard/non-verified')
+          localStorage.setItem('user_verified', 'false')
+          router.push('/dashboard')
         }, 1500)
       } catch (err) {
         // Even on error, route to non-verified dashboard for demo
         addMessage('assistant', 'Redirecting to non-verified dashboard...')
         setTimeout(() => {
-          router.push('/dashboard/non-verified')
+          localStorage.setItem('user_verified', 'false')
+          router.push('/dashboard')
         }, 1000)
       } finally {
         setLoading(false)
@@ -289,6 +293,15 @@ export default function Portal() {
 
       const data: SubmissionResponse = await response.json()
       
+      // Store user_id from backend response - this links portal and dashboard
+      // Backend returns 'UserId' (capital U) in JSON, but we check all formats
+      const userId = data.user_id || data.userId || data.UserId
+      if (userId) {
+        localStorage.setItem('user_id', userId)
+        // Also store in dashboard_user_id for backward compatibility
+        localStorage.setItem('dashboard_user_id', userId)
+      }
+      
       // Add verification result message
       const statusMessage = data.status === 'verified' 
         ? apiKeyValidated
@@ -311,17 +324,24 @@ export default function Portal() {
         }
       }
 
-      // Route to appropriate dashboard after a delay
+      // Store verification status
+      if (data.status === 'verified') {
+        localStorage.setItem('user_verified', 'true')
+      } else {
+        localStorage.setItem('user_verified', 'false')
+      }
+
+      // Route to unified dashboard after a delay
       setTimeout(() => {
         if (data.status === 'verified') {
-          addMessage('assistant', 'Redirecting you to your verified dashboard with prioritized threat intelligence...')
+          addMessage('assistant', 'Redirecting you to your dashboard with full access...')
           setTimeout(() => {
-            router.push('/dashboard/verified')
+            router.push('/dashboard')
           }, 2000)
         } else {
-          addMessage('assistant', 'Redirecting you to general security resources...')
+          addMessage('assistant', 'Redirecting you to your dashboard with limited access...')
           setTimeout(() => {
-            router.push('/dashboard/non-verified')
+            router.push('/dashboard')
           }, 2000)
         }
       }, 3000)
@@ -357,231 +377,306 @@ export default function Portal() {
     setInput('')
   }
 
+  const darkTheme = {
+    bg: '#000000',
+    bgGradient: 'linear-gradient(135deg, #000000 0%, #0a1a0a 50%, #000000 100%)',
+    surface: 'rgba(16, 32, 16, 0.6)',
+    surfaceHover: 'rgba(16, 32, 16, 0.8)',
+    glass: 'rgba(16, 185, 129, 0.1)',
+    glassBorder: 'rgba(16, 185, 129, 0.2)',
+    border: 'rgba(16, 185, 129, 0.3)',
+    text: '#f1f5f9',
+    textMuted: '#94a3b8',
+    primary: '#10b981',
+    primaryGradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    success: '#10b981',
+    successGradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    warning: '#f59e0b',
+    warningGradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    danger: '#ef4444',
+    green: '#10b981',
+    greenGradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+  }
+
   return (
     <main style={{ 
       minHeight: '100vh', 
       padding: '2rem',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: darkTheme.bgGradient,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center'
     }}>
       <div style={{
-        maxWidth: '800px',
+        maxWidth: '900px',
         width: '100%',
-        height: '80vh',
-        maxHeight: '700px',
-        backgroundColor: 'white',
-        borderRadius: '12px',
+        height: '92vh',
+        maxHeight: '900px',
+        background: 'rgba(255, 255, 255, 0.05)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderRadius: '32px',
         padding: '0',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        border: `1px solid ${darkTheme.glassBorder}`,
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+        overflow: 'hidden'
       }}>
         {/* Header */}
         <div style={{
           padding: '1.5rem 2rem',
-          borderBottom: '1px solid #e2e8f0',
-          backgroundColor: '#f7fafc',
-          borderTopLeftRadius: '12px',
-          borderTopRightRadius: '12px'
+          borderBottom: `1px solid ${darkTheme.glassBorder}`,
+          background: 'rgba(255, 255, 255, 0.03)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)'
         }}>
           <h1 style={{ 
-            fontSize: '1.5rem', 
+            fontSize: '1.75rem',
+            fontWeight: '800',
             marginBottom: '0.25rem',
-            color: '#1a202c',
-            fontWeight: '700'
+            background: darkTheme.primaryGradient,
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            letterSpacing: '-0.02em'
           }}>
-            Security Support Portal
+            BioGate Portal
           </h1>
           <p style={{ 
-            color: '#718096', 
+            color: darkTheme.textMuted, 
             fontSize: '0.875rem',
-            margin: 0
+            margin: 0,
+            fontWeight: '500'
           }}>
-            AI-powered cyberbiosecurity assistant
+            AI-powered cyberbiosecurity assistant for BIO-ISAC
           </p>
         </div>
 
-        {/* Demo Login Section - Always Visible */}
+        {/* Demo Login Section - Modern Glassmorphism */}
         <div style={{
-          padding: '1.25rem 2rem',
-          backgroundColor: '#e6fffa',
-          borderBottom: '2px solid #38b2ac',
-          borderTop: '1px solid #e2e8f0'
+          padding: '1rem 1.5rem',
+          background: 'rgba(255, 255, 255, 0.03)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          borderBottom: `1px solid ${darkTheme.glassBorder}`
         }}>
           <div style={{ 
-            fontWeight: '700', 
+            fontWeight: '800', 
             marginBottom: '1rem', 
-            color: '#234e52',
-            fontSize: '1rem',
+            color: darkTheme.text,
+            fontSize: '0.875rem',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem'
+            gap: '0.5rem',
+            letterSpacing: '0.05em',
+            textTransform: 'uppercase'
           }}>
             <span>🚀</span>
-            <span>Team Member Demo Logins</span>
+            <span>Demo Logins</span>
           </div>
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(3, 1fr)', 
-            gap: '1rem',
-            marginBottom: '1rem'
+            gap: '0.75rem'
           }}>
             {/* Verified Login */}
             <div style={{
               padding: '1rem',
-              backgroundColor: '#ffffff',
-              borderRadius: '6px',
-              border: '2px solid #10b981'
-            }}>
-              <div style={{ fontWeight: '600', color: '#234e52', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                ✅ Verified Dashboard Access
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              borderRadius: '20px',
+              border: `1px solid ${darkTheme.success}40`,
+              transition: 'all 0.3s ease',
+              cursor: 'pointer',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)'
+              e.currentTarget.style.borderColor = darkTheme.success
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(16, 185, 129, 0.3)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
+              e.currentTarget.style.borderColor = darkTheme.success + '40'
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+            >
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '60px',
+                height: '60px',
+                background: `radial-gradient(circle, ${darkTheme.success}20, transparent 70%)`,
+                borderRadius: '50%',
+                transform: 'translate(30%, -30%)'
+              }} />
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ fontWeight: '700', color: darkTheme.text, marginBottom: '0.5rem', fontSize: '0.75rem' }}>
+                  ✅ Verified
+                </div>
+                <code style={{ 
+                  background: 'rgba(0, 0, 0, 0.2)', 
+                  padding: '0.5rem 0.75rem', 
+                  borderRadius: '12px',
+                  fontFamily: 'monospace',
+                  fontWeight: '700',
+                  fontSize: '0.6875rem',
+                  display: 'block',
+                  cursor: 'pointer',
+                  userSelect: 'all',
+                  border: `1px solid ${darkTheme.glassBorder}`,
+                  color: darkTheme.text,
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.3)'
+                  e.currentTarget.style.borderColor = darkTheme.success
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.2)'
+                  e.currentTarget.style.borderColor = darkTheme.glassBorder
+                }}
+                >{DEMO_LOGIN_TEXT}</code>
               </div>
-              <div style={{ fontSize: '0.8125rem', color: '#2d3748', marginBottom: '0.75rem' }}>
-                Paste this code to access verified dashboard:
-              </div>
-              <code style={{ 
-                backgroundColor: '#edf2f7', 
-                padding: '0.5rem', 
-                borderRadius: '4px',
-                fontFamily: 'monospace',
-                fontWeight: '600',
-                fontSize: '0.875rem',
-                display: 'block',
-                cursor: 'pointer',
-                userSelect: 'all',
-                border: '1px solid #cbd5e0'
-              }}>{DEMO_LOGIN_TEXT}</code>
             </div>
             
             {/* Non-Verified Login */}
             <div style={{
               padding: '1rem',
-              backgroundColor: '#ffffff',
-              borderRadius: '6px',
-              border: '2px solid #f59e0b'
-            }}>
-              <div style={{ fontWeight: '600', color: '#234e52', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                ⏳ Non-Verified Dashboard Access
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              borderRadius: '20px',
+              border: `1px solid ${darkTheme.warning}40`,
+              transition: 'all 0.3s ease',
+              cursor: 'pointer',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)'
+              e.currentTarget.style.borderColor = darkTheme.warning
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(245, 158, 11, 0.3)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
+              e.currentTarget.style.borderColor = darkTheme.warning + '40'
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+            >
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '60px',
+                height: '60px',
+                background: `radial-gradient(circle, ${darkTheme.warning}20, transparent 70%)`,
+                borderRadius: '50%',
+                transform: 'translate(30%, -30%)'
+              }} />
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ fontWeight: '700', color: darkTheme.text, marginBottom: '0.5rem', fontSize: '0.75rem' }}>
+                  ⏳ Non-Verified
+                </div>
+                <code style={{ 
+                  background: 'rgba(0, 0, 0, 0.2)', 
+                  padding: '0.5rem 0.75rem', 
+                  borderRadius: '12px',
+                  fontFamily: 'monospace',
+                  fontWeight: '700',
+                  fontSize: '0.6875rem',
+                  display: 'block',
+                  cursor: 'pointer',
+                  userSelect: 'all',
+                  border: `1px solid ${darkTheme.glassBorder}`,
+                  color: darkTheme.text,
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.3)'
+                  e.currentTarget.style.borderColor = darkTheme.warning
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.2)'
+                  e.currentTarget.style.borderColor = darkTheme.glassBorder
+                }}
+                >{DEMO_LOGIN_NON_VERIFIED}</code>
               </div>
-              <div style={{ fontSize: '0.8125rem', color: '#2d3748', marginBottom: '0.75rem' }}>
-                Paste this code to access non-verified dashboard:
-              </div>
-              <code style={{ 
-                backgroundColor: '#edf2f7', 
-                padding: '0.5rem', 
-                borderRadius: '4px',
-                fontFamily: 'monospace',
-                fontWeight: '600',
-                fontSize: '0.875rem',
-                display: 'block',
-                cursor: 'pointer',
-                userSelect: 'all',
-                border: '1px solid #cbd5e0'
-              }}>{DEMO_LOGIN_NON_VERIFIED}</code>
             </div>
 
             {/* Admin Login */}
             <div style={{
               padding: '1rem',
-              backgroundColor: '#ffffff',
-              borderRadius: '6px',
-              border: '2px solid #8b5cf6'
-            }}>
-              <div style={{ fontWeight: '600', color: '#234e52', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                🔐 Admin Dashboard Access
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              borderRadius: '20px',
+              border: `1px solid ${darkTheme.purple}40`,
+              transition: 'all 0.3s ease',
+              cursor: 'pointer',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)'
+              e.currentTarget.style.borderColor = darkTheme.purple
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(139, 92, 246, 0.3)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
+              e.currentTarget.style.borderColor = darkTheme.purple + '40'
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+            >
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '60px',
+                height: '60px',
+                background: `radial-gradient(circle, ${darkTheme.purple}20, transparent 70%)`,
+                borderRadius: '50%',
+                transform: 'translate(30%, -30%)'
+              }} />
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ fontWeight: '700', color: darkTheme.text, marginBottom: '0.5rem', fontSize: '0.75rem' }}>
+                  🔐 Admin
+                </div>
+                <code style={{ 
+                  background: 'rgba(0, 0, 0, 0.2)', 
+                  padding: '0.5rem 0.75rem', 
+                  borderRadius: '12px',
+                  fontFamily: 'monospace',
+                  fontWeight: '700',
+                  fontSize: '0.6875rem',
+                  display: 'block',
+                  cursor: 'pointer',
+                  userSelect: 'all',
+                  border: `1px solid ${darkTheme.glassBorder}`,
+                  color: darkTheme.text,
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.3)'
+                  e.currentTarget.style.borderColor = darkTheme.purple
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.2)'
+                  e.currentTarget.style.borderColor = darkTheme.glassBorder
+                }}
+                >{DEMO_LOGIN_ADMIN}</code>
               </div>
-              <div style={{ fontSize: '0.8125rem', color: '#2d3748', marginBottom: '0.75rem' }}>
-                Paste this code to access admin dashboard:
-              </div>
-              <code style={{ 
-                backgroundColor: '#edf2f7', 
-                padding: '0.5rem', 
-                borderRadius: '4px',
-                fontFamily: 'monospace',
-                fontWeight: '600',
-                fontSize: '0.875rem',
-                display: 'block',
-                cursor: 'pointer',
-                userSelect: 'all',
-                border: '1px solid #cbd5e0'
-              }}>{DEMO_LOGIN_ADMIN}</code>
             </div>
-          </div>
-
-          {/* API Keys Section */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '1rem',
-            marginTop: '1rem'
-          }}>
-            {/* Verified API Key */}
-            <div style={{
-              padding: '1rem',
-              backgroundColor: '#ffffff',
-              borderRadius: '6px',
-              border: '2px solid #3b82f6'
-            }}>
-              <div style={{ fontWeight: '600', color: '#1e40af', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                🔑 Verified API Key
-              </div>
-              <div style={{ fontSize: '0.8125rem', color: '#2d3748', marginBottom: '0.75rem' }}>
-                Use this API key to skip verification:
-              </div>
-              <code style={{ 
-                backgroundColor: '#edf2f7', 
-                padding: '0.5rem', 
-                borderRadius: '4px',
-                fontFamily: 'monospace',
-                fontWeight: '600',
-                fontSize: '0.875rem',
-                display: 'block',
-                cursor: 'pointer',
-                userSelect: 'all',
-                border: '1px solid #cbd5e0'
-              }}>{DEMO_VERIFIED_API_KEY}</code>
-            </div>
-
-            {/* Admin API Key */}
-            <div style={{
-              padding: '1rem',
-              backgroundColor: '#ffffff',
-              borderRadius: '6px',
-              border: '2px solid #8b5cf6'
-            }}>
-              <div style={{ fontWeight: '600', color: '#6b21a8', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                🔐 Admin API Key
-              </div>
-              <div style={{ fontSize: '0.8125rem', color: '#2d3748', marginBottom: '0.75rem' }}>
-                Use this for admin dashboard access:
-              </div>
-              <code style={{ 
-                backgroundColor: '#edf2f7', 
-                padding: '0.5rem', 
-                borderRadius: '4px',
-                fontFamily: 'monospace',
-                fontWeight: '600',
-                fontSize: '0.875rem',
-                display: 'block',
-                cursor: 'pointer',
-                userSelect: 'all',
-                border: '1px solid #cbd5e0'
-              }}>{DEMO_ADMIN_API_KEY}</code>
-            </div>
-          </div>
-
-          <div style={{ 
-            padding: '0.75rem',
-            backgroundColor: '#ffffff',
-            borderRadius: '4px',
-            fontSize: '0.8125rem', 
-            color: '#2d3748',
-            border: '1px solid #cbd5e0',
-            marginTop: '1rem'
-          }}>
-            <strong>💡 Tip:</strong> Team members can use either login code to test both dashboards. You can navigate between them using the buttons on each dashboard. Use the API keys to skip verification or access the admin dashboard.
           </div>
         </div>
 
@@ -592,7 +687,8 @@ export default function Portal() {
           padding: '1.5rem 2rem',
           display: 'flex',
           flexDirection: 'column',
-          gap: '1rem'
+          gap: '1rem',
+          background: 'rgba(255, 255, 255, 0.02)'
         }}>
           {messages.map((message, idx) => (
             <div
@@ -606,51 +702,73 @@ export default function Portal() {
             >
               {message.role !== 'user' && (
                 <div style={{
-                  width: '32px',
-                  height: '32px',
+                  width: '40px',
+                  height: '40px',
                   borderRadius: '50%',
-                  backgroundColor: message.role === 'assistant' ? '#667eea' : '#48bb78',
+                  background: message.role === 'assistant' ? darkTheme.primaryGradient : darkTheme.successGradient,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: 'white',
                   fontSize: '0.875rem',
-                  fontWeight: '600',
-                  flexShrink: 0
+                  fontWeight: '700',
+                  flexShrink: 0,
+                  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)'
                 }}>
                   {message.role === 'assistant' ? 'AI' : '✓'}
                 </div>
               )}
               <div style={{
-                maxWidth: '70%',
-                padding: '0.875rem 1.125rem',
-                borderRadius: '12px',
-                backgroundColor: message.role === 'user' 
-                  ? '#667eea' 
+                maxWidth: '75%',
+                padding: '1rem 1.25rem',
+                borderRadius: message.role === 'user' ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                background: message.role === 'user' 
+                  ? darkTheme.primaryGradient
                   : message.role === 'system'
-                  ? '#edf2f7'
-                  : '#f7fafc',
-                color: message.role === 'user' ? 'white' : '#2d3748',
-                border: message.role === 'system' ? '1px solid #cbd5e0' : 'none',
+                  ? 'rgba(255, 255, 255, 0.05)'
+                  : 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: message.role !== 'user' ? 'blur(10px)' : 'none',
+                WebkitBackdropFilter: message.role !== 'user' ? 'blur(10px)' : 'none',
+                color: message.role === 'user' ? 'white' : darkTheme.text,
+                border: message.role === 'system' ? `1px solid ${darkTheme.glassBorder}` : 'none',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 fontSize: '0.9375rem',
-                lineHeight: '1.5'
-              }}>
+                lineHeight: '1.6',
+                fontWeight: message.role === 'user' ? '500' : '400',
+                boxShadow: message.role === 'user' ? '0 4px 20px rgba(99, 102, 241, 0.3)' : '0 2px 10px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (message.role !== 'user') {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (message.role !== 'user') {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                }
+              }}
+              >
                 {message.content}
               </div>
               {message.role === 'user' && (
                 <div style={{
-                  width: '32px',
-                  height: '32px',
+                  width: '40px',
+                  height: '40px',
                   borderRadius: '50%',
-                  backgroundColor: '#cbd5e0',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  border: `1px solid ${darkTheme.glassBorder}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#4a5568',
+                  color: darkTheme.text,
                   fontSize: '0.875rem',
-                  fontWeight: '600',
+                  fontWeight: '700',
                   flexShrink: 0
                 }}>
                   You
@@ -666,25 +784,32 @@ export default function Portal() {
               gap: '0.75rem'
             }}>
               <div style={{
-                width: '32px',
-                height: '32px',
+                width: '40px',
+                height: '40px',
                 borderRadius: '50%',
-                backgroundColor: '#667eea',
+                background: darkTheme.primaryGradient,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'white',
                 fontSize: '0.875rem',
-                fontWeight: '600',
-                flexShrink: 0
+                fontWeight: '700',
+                flexShrink: 0,
+                boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)',
+                animation: 'pulse 2s ease-in-out infinite'
               }}>
                 AI
               </div>
               <div style={{
-                padding: '0.875rem 1.125rem',
-                borderRadius: '12px',
-                backgroundColor: '#f7fafc',
-                color: '#2d3748'
+                padding: '1rem 1.25rem',
+                borderRadius: '20px 20px 20px 4px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                border: `1px solid ${darkTheme.glassBorder}`,
+                color: darkTheme.text,
+                fontSize: '0.9375rem',
+                fontWeight: '500'
               }}>
                 <span style={{ display: 'inline-block', animation: 'pulse 1.5s ease-in-out infinite' }}>
                   Analyzing...
@@ -698,10 +823,10 @@ export default function Portal() {
         {/* Input Form */}
         <form onSubmit={handleSend} style={{
           padding: '1.5rem 2rem',
-          borderTop: '1px solid #e2e8f0',
-          backgroundColor: '#f7fafc',
-          borderBottomLeftRadius: '12px',
-          borderBottomRightRadius: '12px'
+          borderTop: `1px solid ${darkTheme.glassBorder}`,
+          background: 'rgba(255, 255, 255, 0.03)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)'
         }}>
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <input
@@ -718,33 +843,63 @@ export default function Portal() {
               disabled={loading}
               style={{
                 flex: 1,
-                padding: '0.75rem 1rem',
-                border: '2px solid #e2e8f0',
-                borderRadius: '8px',
+                padding: '1rem 1.25rem',
+                border: `1px solid ${darkTheme.glassBorder}`,
+                borderRadius: '20px',
                 fontSize: '0.9375rem',
-                transition: 'border-color 0.2s',
-                outline: 'none'
+                transition: 'all 0.3s ease',
+                outline: 'none',
+                background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                color: darkTheme.text,
+                fontWeight: '500'
               }}
-              onFocus={(e) => e.target.style.borderColor = '#667eea'}
-              onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+              onFocus={(e) => {
+                e.target.style.borderColor = darkTheme.primary
+                e.target.style.background = 'rgba(255, 255, 255, 0.08)'
+                e.target.style.transform = 'scale(1.02)'
+                e.target.style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.2)'
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = darkTheme.glassBorder
+                e.target.style.background = 'rgba(255, 255, 255, 0.05)'
+                e.target.style.transform = 'scale(1)'
+                e.target.style.boxShadow = 'none'
+              }}
             />
             <button
               type="submit"
               disabled={!input.trim() || loading}
               style={{
-                padding: '0.75rem 1.5rem',
+                padding: '1rem 2rem',
                 fontSize: '0.9375rem',
-                fontWeight: '600',
+                fontWeight: '700',
                 color: 'white',
-                backgroundColor: (!input.trim() || loading) ? '#a0aec0' : '#667eea',
+                background: (!input.trim() || loading) 
+                  ? 'rgba(255, 255, 255, 0.05)' 
+                  : darkTheme.primaryGradient,
                 border: 'none',
-                borderRadius: '8px',
+                borderRadius: '20px',
                 cursor: (!input.trim() || loading) ? 'not-allowed' : 'pointer',
-                transition: 'background-color 0.2s',
-                whiteSpace: 'nowrap'
+                transition: 'all 0.3s ease',
+                whiteSpace: 'nowrap',
+                boxShadow: (!input.trim() || loading) ? 'none' : '0 4px 20px rgba(99, 102, 241, 0.4)'
+              }}
+              onMouseEnter={(e) => {
+                if (input.trim() && !loading) {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 8px 30px rgba(99, 102, 241, 0.5)'
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (input.trim() && !loading) {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.4)'
+                }
               }}
             >
-              Send
+              {loading ? 'Sending...' : 'Send →'}
             </button>
           </div>
         </form>

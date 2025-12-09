@@ -22,11 +22,13 @@ services:
       - PUBLIC_WEB_ORIGIN=${PUBLIC_WEB_ORIGIN}
       - ORCHESTRATOR_URL=http://orchestrator:8080
       - CVE_INGESTOR_URL=http://cve-ingestor:9095
+      - AI_RAG_URL=http://ai-rag:9090
     env_file:
       - .env
     depends_on:
       - orchestrator
       - cve-ingestor
+      - ai-rag
 
   orchestrator:
     build:
@@ -45,7 +47,6 @@ services:
       - AI_RAG_URL=http://ai-rag:9090
       - ETL_NV_URL=http://etl-nv:9101
       - ETL_V_URL=http://etl-v:9102
-      - ADMIN_API_KEYS=${ADMIN_API_KEYS}
     env_file:
       - .env
 

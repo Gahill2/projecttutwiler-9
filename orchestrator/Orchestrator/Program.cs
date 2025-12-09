@@ -295,6 +295,87 @@ app.MapPost("/portal/submit", async (
     }
 });
 
+// CVE submission endpoint - stores CVE uploads for admin viewing
+app.MapPost("/cve/submit", async (
+    HttpContext context,
+    AppDb db) =>
+{
+    try
+    {
+        var request = await context.Request.ReadFromJsonAsync<Models.CveSubmitRequest>();
+        if (request == null || string.IsNullOrWhiteSpace(request.Description))
+        {
+            return Results.BadRequest(new { error = "CVE description is required" });
+        }
+
+        // Get or create user (simplified - in production, use proper auth)
+        Guid userId;
+        if (request.UserId.HasValue)
+        {
+            userId = request.UserId.Value;
+        }
+        else
+        {
+            // Create new user for this submission
+            userId = Guid.NewGuid();
+            var newUser = new AppUser
+            {
+                UserId = userId,
+                Status = "verified", // Assume verified if submitting CVE
+                LastVerifiedAt = DateTime.UtcNow,
+                ModelVersion = "cve_submission"
+            };
+            db.AppUsers.Add(newUser);
+            await db.SaveChangesAsync();
+        }
+        
+        var user = await db.AppUsers.FirstOrDefaultAsync(u => u.UserId == userId);
+        var isVerified = user?.Status == "verified";
+
+        // Determine severity from CVSS score if provided
+        var severity = "Low";
+        if (request.CvssScore.HasValue)
+        {
+            if (request.CvssScore >= 9.0m) severity = "Critical";
+            else if (request.CvssScore >= 7.0m) severity = "High";
+            else if (request.CvssScore >= 4.0m) severity = "Moderate";
+        }
+
+        // Create CVE submission record
+        var submission = new Models.CveSubmission
+        {
+            SubmissionId = Guid.NewGuid(),
+            UserId = userId,
+            Description = request.Description,
+            Severity = severity,
+            CvssScore = request.CvssScore,
+            Status = "pending",
+            IsVerifiedUser = isVerified,
+            SimilarCvesJson = request.SimilarCves != null 
+                ? System.Text.Json.JsonSerializer.Serialize(request.SimilarCves) 
+                : null,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        db.CveSubmissions.Add(submission);
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new
+        {
+            submission_id = submission.SubmissionId.ToString(),
+            severity = severity,
+            is_verified = isVerified,
+            message = "CVE submission stored successfully. Admin will review it."
+        });
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"CVE submission error: {ex.GetType().Name}: {ex.Message}");
+        return Results.Json(new { error = ex.Message }, statusCode: 500);
+    }
+});
+
 // Helper function to validate admin API key
 static bool IsAdminApiKeyValid(string? apiKey)
 {
@@ -303,6 +384,12 @@ static bool IsAdminApiKeyValid(string? apiKey)
     
     var adminKeysEnv = Environment.GetEnvironmentVariable("ADMIN_API_KEYS") ?? "";
     var adminKeys = adminKeysEnv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    
+    // Debug logging
+    Console.WriteLine($"[Admin Key Check] Received key: '{apiKey}'");
+    Console.WriteLine($"[Admin Key Check] ADMIN_API_KEYS env var: '{adminKeysEnv}'");
+    Console.WriteLine($"[Admin Key Check] Parsed keys: [{string.Join(", ", adminKeys.Select(k => $"'{k}'"))}]");
+    Console.WriteLine($"[Admin Key Check] Key found: {adminKeys.Contains(apiKey)}");
     
     return adminKeys.Contains(apiKey);
 }
@@ -329,6 +416,274 @@ app.MapGet("/admin/analytics", async (
     catch (Exception ex)
     {
         Console.WriteLine($"Analytics error: {ex.GetType().Name}: {ex.Message}");
+        return Results.Json(new { error = ex.Message }, statusCode: 500);
+    }
+});
+
+// Admin request endpoint (for verified users to request admin actions)
+app.MapPost("/admin/request", async (HttpContext context) =>
+{
+    try
+    {
+        var request = await context.Request.ReadFromJsonAsync<Models.AdminRequestModel>();
+        if (request == null || string.IsNullOrWhiteSpace(request.IssueId))
+        {
+            return Results.BadRequest(new { error = "Issue ID is required" });
+        }
+
+        // Store admin request (for now, just log it - could be stored in database)
+        Console.WriteLine($"Admin request received: Issue={request.IssueId}, Type={request.RequestType}, Message={request.Message}");
+        
+        // In a real implementation, you would:
+        // 1. Store the request in a database table
+        // 2. Send notification to admin
+        // 3. Return request ID for tracking
+        
+        return Results.Ok(new 
+        { 
+            success = true,
+            request_id = Guid.NewGuid().ToString(),
+            message = "Admin request submitted successfully. Admin will review your request."
+        });
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Admin request error: {ex.GetType().Name}: {ex.Message}");
+        return Results.Json(new { error = ex.Message }, statusCode: 500);
+    }
+});
+
+// Admin CVE listing endpoint with filtering and sorting
+app.MapGet("/admin/cves", async (
+    HttpContext context,
+    AppDb db) =>
+{
+    var apiKey = context.Request.Headers["X-Admin-API-Key"].FirstOrDefault() 
+                 ?? context.Request.Query["api_key"].FirstOrDefault();
+    
+    if (!IsAdminApiKeyValid(apiKey))
+    {
+        return Results.Unauthorized();
+    }
+
+    try
+    {
+        var severity = context.Request.Query["severity"].FirstOrDefault();
+        var status = context.Request.Query["status"].FirstOrDefault();
+        var userType = context.Request.Query["user_type"].FirstOrDefault(); // "verified", "non_verified", or null
+        var sortBy = context.Request.Query["sort_by"].FirstOrDefault() ?? "created_at";
+        var sortOrder = context.Request.Query["sort_order"].FirstOrDefault() ?? "desc";
+        var limit = int.TryParse(context.Request.Query["limit"].FirstOrDefault(), out var limitVal) ? limitVal : 100;
+        var offset = int.TryParse(context.Request.Query["offset"].FirstOrDefault(), out var offsetVal) ? offsetVal : 0;
+
+        var query = db.CveSubmissions.AsQueryable();
+
+        // Apply filters
+        if (!string.IsNullOrEmpty(severity))
+        {
+            query = query.Where(c => c.Severity == severity);
+        }
+        if (!string.IsNullOrEmpty(status))
+        {
+            query = query.Where(c => c.Status == status);
+        }
+        if (!string.IsNullOrEmpty(userType))
+        {
+            var isVerified = userType.ToLower() == "verified";
+            query = query.Where(c => c.IsVerifiedUser == isVerified);
+        }
+
+        // Apply sorting
+        if (sortBy == "severity")
+        {
+            query = sortOrder == "asc" 
+                ? query.OrderBy(c => c.Severity)
+                : query.OrderByDescending(c => c.Severity);
+        }
+        else if (sortBy == "cvss_score")
+        {
+            query = sortOrder == "asc"
+                ? query.OrderBy(c => c.CvssScore ?? 0)
+                : query.OrderByDescending(c => c.CvssScore ?? 0);
+        }
+        else if (sortBy == "status")
+        {
+            query = sortOrder == "asc"
+                ? query.OrderBy(c => c.Status)
+                : query.OrderByDescending(c => c.Status);
+        }
+        else // default: created_at
+        {
+            query = sortOrder == "asc"
+                ? query.OrderBy(c => c.CreatedAt)
+                : query.OrderByDescending(c => c.CreatedAt);
+        }
+
+        var total = await query.CountAsync();
+        var cves = await query
+            .Skip(offset)
+            .Take(limit)
+            .Select(c => new
+            {
+                submission_id = c.SubmissionId.ToString(),
+                user_id = c.UserId.ToString(),
+                description = c.Description,
+                severity = c.Severity,
+                cvss_score = c.CvssScore,
+                status = c.Status,
+                is_verified_user = c.IsVerifiedUser,
+                similar_cves = c.SimilarCvesJson,
+                created_at = c.CreatedAt,
+                updated_at = c.UpdatedAt
+            })
+            .ToListAsync();
+
+        return Results.Ok(new
+        {
+            total = total,
+            offset = offset,
+            limit = limit,
+            cves = cves
+        });
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"CVE listing error: {ex.GetType().Name}: {ex.Message}");
+        return Results.Json(new { error = ex.Message }, statusCode: 500);
+    }
+});
+
+// Admin AI threat analysis endpoint
+app.MapPost("/admin/analyze-threat", async (
+    HttpContext context,
+    AppDb db) =>
+{
+    var apiKey = context.Request.Headers["X-Admin-API-Key"].FirstOrDefault() 
+                 ?? context.Request.Query["api_key"].FirstOrDefault();
+    
+    if (!IsAdminApiKeyValid(apiKey))
+    {
+        return Results.Unauthorized();
+    }
+
+    try
+    {
+        var request = await context.Request.ReadFromJsonAsync<Models.ThreatAnalysisRequest>();
+        if (request == null || string.IsNullOrWhiteSpace(request.SubmissionId))
+        {
+            return Results.BadRequest(new { error = "Submission ID is required" });
+        }
+
+        var submission = await db.CveSubmissions
+            .FirstOrDefaultAsync(c => c.SubmissionId == Guid.Parse(request.SubmissionId));
+        
+        if (submission == null)
+        {
+            return Results.NotFound(new { error = "CVE submission not found" });
+        }
+
+        // Call AI-RAG service for threat analysis
+        var aiRagUrl = Environment.GetEnvironmentVariable("AI_RAG_URL") ?? "http://ai-rag:9090";
+        using var httpClient = new HttpClient();
+        httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+        var analysisRequest = new
+        {
+            text = submission.Description,
+            context = "admin_threat_analysis"
+        };
+
+        var analysisResponse = await httpClient.PostAsJsonAsync(
+            $"{aiRagUrl}/analyze-threat-detailed",
+            analysisRequest
+        );
+
+        if (!analysisResponse.IsSuccessStatusCode)
+        {
+            // Fallback analysis if AI service fails
+            var isSuspicious = submission.Description.ToLower().Contains("test") ||
+                              submission.Description.ToLower().Contains("fake") ||
+                              submission.Description.Length < 20 ||
+                              (submission.CvssScore.HasValue && submission.CvssScore > 9.5m && !submission.IsVerifiedUser);
+
+            return Results.Ok(new
+            {
+                submission_id = request.SubmissionId,
+                is_real_threat = !isSuspicious,
+                is_flagged = isSuspicious,
+                confidence = isSuspicious ? 0.7 : 0.5,
+                flags = isSuspicious ? new[] { "Low description quality", "Potential test submission" } : Array.Empty<string>(),
+                analysis = isSuspicious 
+                    ? "This submission may be a test or low-quality entry. Review recommended."
+                    : "Submission appears legitimate. Standard review process recommended.",
+                risk_score = isSuspicious ? 0.6 : 0.3
+            });
+        }
+
+        var analysisData = await analysisResponse.Content.ReadFromJsonAsync<dynamic>();
+        return Results.Ok(analysisData);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Threat analysis error: {ex.GetType().Name}: {ex.Message}");
+        return Results.Json(new { error = ex.Message }, statusCode: 500);
+    }
+});
+
+// Admin user analytics over time endpoint
+app.MapGet("/admin/user-analytics", async (
+    HttpContext context,
+    AppDb db) =>
+{
+    var apiKey = context.Request.Headers["X-Admin-API-Key"].FirstOrDefault() 
+                 ?? context.Request.Query["api_key"].FirstOrDefault();
+    
+    if (!IsAdminApiKeyValid(apiKey))
+    {
+        return Results.Unauthorized();
+    }
+
+    try
+    {
+        var days = int.TryParse(context.Request.Query["days"].FirstOrDefault(), out var daysVal) ? daysVal : 30;
+        var now = DateTime.UtcNow;
+        var startDate = now.AddDays(-days);
+
+        // User registrations over time
+        var registrations = await db.StatusAudits
+            .Where(a => a.CreatedAt >= startDate)
+            .GroupBy(a => new { Date = a.CreatedAt.Date })
+            .Select(g => new
+            {
+                date = g.Key.Date.ToString("yyyy-MM-dd"),
+                verified = g.Count(a => a.Status == "verified"),
+                non_verified = g.Count(a => a.Status == "non_verified"),
+                total = g.Count()
+            })
+            .OrderBy(r => r.date)
+            .ToListAsync();
+
+        // Verification rate over time
+        var verificationRates = await db.StatusAudits
+            .Where(a => a.CreatedAt >= startDate)
+            .GroupBy(a => new { Date = a.CreatedAt.Date })
+            .Select(g => new
+            {
+                date = g.Key.Date.ToString("yyyy-MM-dd"),
+                rate = g.Count() > 0 ? (double)g.Count(a => a.Status == "verified") / g.Count() * 100 : 0
+            })
+            .OrderBy(r => r.date)
+            .ToListAsync();
+
+        return Results.Ok(new
+        {
+            registrations = registrations,
+            verification_rates = verificationRates
+        });
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"User analytics error: {ex.GetType().Name}: {ex.Message}");
         return Results.Json(new { error = ex.Message }, statusCode: 500);
     }
 });

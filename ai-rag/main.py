@@ -256,6 +256,20 @@ Return only valid JSON, no other text. Example format:
             if result["decision"] not in ["verified", "non_verified"]:
                 result["decision"] = "non_verified"
             
+            # Add similar CVEs for comparison
+            similar_cves = []
+            for match in results_matches[:5]:  # Top 5 similar CVEs
+                metadata = match.metadata or {}
+                doc_id = metadata.get("doc_id", "unknown")
+                chunk = metadata.get("chunk", "")
+                similar_cves.append({
+                    "id": doc_id,
+                    "score": match.score,
+                    "description": chunk[:200] + "..." if len(chunk) > 200 else chunk
+                })
+            
+            result["similar_cves"] = similar_cves
+            
             return result
         except json.JSONDecodeError:
             # Fallback: synthesize from similarity scores
@@ -269,6 +283,92 @@ Return only valid JSON, no other text. Example format:
                 "score_bin": score_bin,
                 "reason_codes": reason_codes
             }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ChatRequest(BaseModel):
+    message: str
+    context: Optional[str] = None
+    limit_features: Optional[bool] = False
+    issue_id: Optional[str] = None
+
+@app.post("/chat")
+async def chat(request: ChatRequest):
+    """Chat endpoint for user questions and advice"""
+    try:
+        # For non-verified users, provide limited guidance
+        if request.limit_features:
+            prompt = f"""You are a helpful security advisor for a cyberbiosecurity platform. The user is a non-verified user with limited access.
+
+Provide helpful but general guidance about:
+- How to use the platform
+- General security best practices
+- What features are available after verification
+
+Keep responses concise and helpful. Do not provide specific threat analysis or detailed security recommendations - those require verified access.
+
+User question: {request.message}
+
+Provide a helpful, friendly response:"""
+        else:
+            # For verified users, provide full assistance
+            query_embedding = get_embedding(request.message)
+            
+            # Try to get relevant context from Pinecone
+            context_parts = []
+            try:
+                index = get_index()
+                namespaces = ["nvd", "cisa_kev"]
+                
+                for ns in namespaces:
+                    try:
+                        results = index.query(
+                            vector=query_embedding,
+                            top_k=3,
+                            include_metadata=True,
+                            namespace=ns
+                        )
+                        for match in results.matches:
+                            metadata = match.metadata or {}
+                            chunk = metadata.get("chunk", "")
+                            if chunk:
+                                context_parts.append(f"- {chunk[:200]}...")
+                    except:
+                        continue
+            except:
+                pass
+            
+            context_str = "\n".join(context_parts) if context_parts else "No specific CVE context available."
+            
+            if request.issue_id:
+                # Chat about a specific issue
+                prompt = f"""You are a security expert helping a verified user discuss a specific security issue.
+
+Context from CVE database (if relevant):
+{context_str}
+
+User is asking about issue ID: {request.issue_id}
+User question: {request.message}
+
+Provide detailed, actionable security advice based on the issue and available threat intelligence:"""
+            else:
+                # General chat
+                prompt = f"""You are a security expert helping a verified user with cyberbiosecurity questions.
+
+Context from CVE database (if relevant):
+{context_str}
+
+User question: {request.message}
+
+Provide detailed, actionable security advice:"""
+        
+        gen_response = generate(prompt)
+        response_text = gen_response.get("response", "I apologize, but I could not process your request.")
+        
+        return {
+            "response": response_text,
+            "context_used": len(context_parts) > 0 if 'context_parts' in locals() else False
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
