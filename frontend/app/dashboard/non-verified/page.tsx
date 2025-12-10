@@ -11,6 +11,35 @@ interface Message {
   timestamp: Date
 }
 
+const darkTheme = {
+  // Dark base colors matching admin
+  bg: '#0a0a0a',
+  bgGradient: 'linear-gradient(180deg, #0a0a0a 0%, #111111 100%)',
+  surface: '#161616',
+  surfaceHover: '#1f1f1f',
+  card: '#1a1a1a',
+  cardHover: '#242424',
+  // Muted amber/yellow accents for non-verified (vs green for admin)
+  border: 'rgba(234, 179, 8, 0.2)',
+  borderLight: 'rgba(234, 179, 8, 0.1)',
+  borderHover: 'rgba(234, 179, 8, 0.4)',
+  // Clean text colors
+  text: '#fafafa',
+  textMuted: '#a3a3a3',
+  textSubtle: '#737373',
+  // Amber/yellow accents for non-verified status
+  primary: '#eab308',
+  primaryGradient: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
+  primaryHover: '#facc15',
+  // Status colors
+  success: '#16a34a',
+  successGradient: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+  warning: '#eab308',
+  warningGradient: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
+  danger: '#ef4444',
+  dangerGradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+}
+
 function AIChatAdvisor() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -36,7 +65,6 @@ function AIChatAdvisor() {
     setLoading(true)
 
     try {
-      // Call AI-RAG service for chat (limited to advice/guidance)
       const response = await fetch(`${API_URL}/ai-rag/chat`, {
         method: 'POST',
         headers: {
@@ -76,32 +104,36 @@ function AIChatAdvisor() {
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      height: '400px',
-      border: '1px solid #e5e7eb',
-      borderRadius: '8px',
-      backgroundColor: 'white'
+      height: '500px',
+      background: darkTheme.card,
+      border: `1px solid ${darkTheme.border}`,
+      borderRadius: '24px',
+      overflow: 'hidden'
     }}>
       <div style={{
-        padding: '1rem',
-        borderBottom: '1px solid #e5e7eb',
-        backgroundColor: '#f9fafb',
-        borderTopLeftRadius: '8px',
-        borderTopRightRadius: '8px'
+        padding: '1.5rem',
+        borderBottom: `1px solid ${darkTheme.border}`,
+        background: darkTheme.surface
       }}>
-        <h3 style={{ fontSize: '0.9375rem', fontWeight: '600', color: '#374151', margin: 0 }}>
+        <h3 style={{ 
+          fontSize: '1rem', 
+          fontWeight: '700', 
+          color: darkTheme.text, 
+          margin: '0 0 0.25rem 0' 
+        }}>
           AI Security Advisor (Limited Features)
         </h3>
-        <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: '0.25rem 0 0 0' }}>
+        <p style={{ fontSize: '0.8125rem', color: darkTheme.textMuted, margin: 0 }}>
           Get advice on using the platform and general security guidance
         </p>
       </div>
       <div style={{
         flex: 1,
         overflowY: 'auto',
-        padding: '1rem',
+        padding: '1.5rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.75rem'
+        gap: '1rem'
       }}>
         {messages.map((msg, idx) => (
           <div
@@ -109,12 +141,15 @@ function AIChatAdvisor() {
             style={{
               alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
               maxWidth: '80%',
-              padding: '0.75rem',
-              borderRadius: '8px',
-              backgroundColor: msg.role === 'user' ? '#3b82f6' : '#f3f4f6',
-              color: msg.role === 'user' ? 'white' : '#374151',
+              padding: '1rem',
+              borderRadius: '16px',
+              background: msg.role === 'user' 
+                ? darkTheme.primaryGradient 
+                : darkTheme.surface,
+              color: msg.role === 'user' ? 'white' : darkTheme.text,
               fontSize: '0.875rem',
-              lineHeight: '1.5'
+              lineHeight: '1.6',
+              border: msg.role === 'assistant' ? `1px solid ${darkTheme.border}` : 'none'
             }}
           >
             {msg.content}
@@ -123,21 +158,23 @@ function AIChatAdvisor() {
         {loading && (
           <div style={{
             alignSelf: 'flex-start',
-            padding: '0.75rem',
-            borderRadius: '8px',
-            backgroundColor: '#f3f4f6',
-            color: '#6b7280',
-            fontSize: '0.875rem'
+            padding: '1rem',
+            borderRadius: '16px',
+            background: darkTheme.surface,
+            color: darkTheme.textMuted,
+            fontSize: '0.875rem',
+            border: `1px solid ${darkTheme.border}`
           }}>
             Thinking...
           </div>
         )}
       </div>
       <form onSubmit={handleSend} style={{
-        padding: '1rem',
-        borderTop: '1px solid #e5e7eb',
+        padding: '1.5rem',
+        borderTop: `1px solid ${darkTheme.border}`,
         display: 'flex',
-        gap: '0.5rem'
+        gap: '0.75rem',
+        background: darkTheme.surface
       }}>
         <input
           type="text"
@@ -147,24 +184,28 @@ function AIChatAdvisor() {
           disabled={loading}
           style={{
             flex: 1,
-            padding: '0.625rem',
-            border: '1px solid #e5e7eb',
-            borderRadius: '6px',
-            fontSize: '0.875rem'
+            padding: '0.875rem 1rem',
+            background: darkTheme.card,
+            border: `1px solid ${darkTheme.border}`,
+            borderRadius: '12px',
+            fontSize: '0.875rem',
+            color: darkTheme.text,
+            outline: 'none'
           }}
         />
         <button
           type="submit"
           disabled={!input.trim() || loading}
           style={{
-            padding: '0.625rem 1rem',
-            backgroundColor: (!input.trim() || loading) ? '#9ca3af' : '#3b82f6',
+            padding: '0.875rem 1.5rem',
+            background: (!input.trim() || loading) ? darkTheme.surfaceHover : darkTheme.primaryGradient,
             color: 'white',
             border: 'none',
-            borderRadius: '6px',
+            borderRadius: '12px',
             cursor: (!input.trim() || loading) ? 'not-allowed' : 'pointer',
             fontSize: '0.875rem',
-            fontWeight: '600'
+            fontWeight: '700',
+            transition: 'all 0.3s ease'
           }}
         >
           Send
@@ -219,13 +260,14 @@ function ThreatSubmissionForm({ hasSubmitted, onSubmitted }: { hasSubmitted: boo
     <form onSubmit={handleSubmit}>
       {hasSubmitted && (
         <div style={{
-          padding: '0.75rem',
-          backgroundColor: '#fef3c7',
-          border: '1px solid #fbbf24',
-          borderRadius: '6px',
-          color: '#92400e',
-          marginBottom: '0.75rem',
-          fontSize: '0.875rem'
+          padding: '1rem',
+          background: 'rgba(234, 179, 8, 0.1)',
+          border: `1px solid ${darkTheme.warning}`,
+          borderRadius: '16px',
+          color: darkTheme.warning,
+          marginBottom: '1rem',
+          fontSize: '0.875rem',
+          fontWeight: '600'
         }}>
           ⚠️ You have already submitted 1 issue. As a non-verified user, you can only submit 1 issue. Get verified to submit unlimited issues.
         </div>
@@ -237,25 +279,28 @@ function ThreatSubmissionForm({ hasSubmitted, onSubmitted }: { hasSubmitted: boo
         disabled={submitting || hasSubmitted}
         style={{
           width: '100%',
-          minHeight: '120px',
-          padding: '0.75rem',
-          border: '2px solid #e5e7eb',
-          borderRadius: '6px',
+          minHeight: '140px',
+          padding: '1rem',
+          background: darkTheme.card,
+          border: `1px solid ${darkTheme.border}`,
+          borderRadius: '16px',
           fontSize: '0.9375rem',
           fontFamily: 'inherit',
           resize: 'vertical',
-          marginBottom: '0.75rem',
-          opacity: hasSubmitted ? 0.6 : 1
+          marginBottom: '1rem',
+          color: darkTheme.text,
+          opacity: hasSubmitted ? 0.6 : 1,
+          outline: 'none'
         }}
       />
       {error && (
         <div style={{
-          padding: '0.75rem',
-          backgroundColor: '#fee2e2',
-          border: '1px solid #fca5a5',
-          borderRadius: '6px',
-          color: '#991b1b',
-          marginBottom: '0.75rem',
+          padding: '1rem',
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: `1px solid ${darkTheme.danger}`,
+          borderRadius: '16px',
+          color: darkTheme.danger,
+          marginBottom: '1rem',
           fontSize: '0.875rem'
         }}>
           {error}
@@ -263,12 +308,12 @@ function ThreatSubmissionForm({ hasSubmitted, onSubmitted }: { hasSubmitted: boo
       )}
       {submitted && (
         <div style={{
-          padding: '0.75rem',
-          backgroundColor: '#d1fae5',
-          border: '1px solid #6ee7b7',
-          borderRadius: '6px',
-          color: '#065f46',
-          marginBottom: '0.75rem',
+          padding: '1rem',
+          background: 'rgba(22, 163, 74, 0.1)',
+          border: `1px solid ${darkTheme.success}`,
+          borderRadius: '16px',
+          color: darkTheme.success,
+          marginBottom: '1rem',
           fontSize: '0.875rem'
         }}>
           ✓ Threat submitted successfully (low priority). Our team will review it.
@@ -279,14 +324,17 @@ function ThreatSubmissionForm({ hasSubmitted, onSubmitted }: { hasSubmitted: boo
         disabled={!threatDescription.trim() || submitting || hasSubmitted}
         style={{
           width: '100%',
-          padding: '0.75rem',
+          padding: '1rem',
           fontSize: '0.9375rem',
-          fontWeight: '600',
-          backgroundColor: (!threatDescription.trim() || submitting || hasSubmitted) ? '#9ca3af' : '#f59e0b',
+          fontWeight: '700',
+          background: (!threatDescription.trim() || submitting || hasSubmitted) 
+            ? darkTheme.surfaceHover 
+            : darkTheme.primaryGradient,
           color: 'white',
           border: 'none',
-          borderRadius: '6px',
-          cursor: (!threatDescription.trim() || submitting || hasSubmitted) ? 'not-allowed' : 'pointer'
+          borderRadius: '16px',
+          cursor: (!threatDescription.trim() || submitting || hasSubmitted) ? 'not-allowed' : 'pointer',
+          transition: 'all 0.3s ease'
         }}
       >
         {hasSubmitted ? 'Limit Reached (1/1)' : submitting ? 'Submitting...' : 'Submit Threat (Low Priority)'}
@@ -301,7 +349,6 @@ export default function NonVerifiedDashboard() {
   const [hasSubmittedIssue, setHasSubmittedIssue] = useState(false)
 
   useEffect(() => {
-    // Check if user has already submitted an issue (stored in localStorage)
     const submitted = localStorage.getItem('non_verified_issue_submitted')
     if (submitted === 'true') {
       setHasSubmittedIssue(true)
@@ -314,68 +361,99 @@ export default function NonVerifiedDashboard() {
     localStorage.setItem('non_verified_issue_submitted', 'true')
   }
 
+  if (loading) {
+    return (
+      <main style={{
+        minHeight: '100vh',
+        background: darkTheme.bgGradient,
+        padding: '2rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: darkTheme.text
+      }}>
+        <div style={{ textAlign: 'center', color: darkTheme.textMuted }}>
+          <div style={{ fontSize: '1.125rem', fontWeight: '600' }}>Loading...</div>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main style={{
       minHeight: '100vh',
-      backgroundColor: '#f9fafb',
+      background: darkTheme.bgGradient,
       padding: '2rem'
     }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        {/* Simple Header */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        {/* Header Banner */}
         <div style={{
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '2rem',
+          background: darkTheme.primaryGradient,
+          borderRadius: '24px',
+          padding: '2.5rem',
           marginBottom: '2rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          textAlign: 'center',
-          border: '2px dashed #d1d5db'
+          boxShadow: `0 8px 32px ${darkTheme.primary}20`,
+          borderBottom: `1px solid ${darkTheme.border}`
         }}>
           <div style={{
             display: 'inline-block',
-            backgroundColor: '#f3f4f6',
-            color: '#6b7280',
+            background: 'rgba(0, 0, 0, 0.2)',
+            color: 'white',
             padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            fontSize: '0.875rem',
-            fontWeight: '600',
+            borderRadius: '12px',
+            fontSize: '0.75rem',
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
             marginBottom: '1rem'
           }}>
-            ⏳ PENDING VERIFICATION
+            ⏳ NON-VERIFIED USER
           </div>
           <h1 style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: '700', 
-            color: '#374151',
-            marginBottom: '0.5rem'
+            fontSize: '2rem', 
+            fontWeight: '800', 
+            color: 'white',
+            marginBottom: '0.5rem',
+            letterSpacing: '-0.02em'
           }}>
             Security Resources Dashboard
           </h1>
-          <p style={{ color: '#6b7280', fontSize: '0.9375rem', margin: 0 }}>
+          <p style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '1rem', margin: 0 }}>
             General security information and resources
           </p>
         </div>
 
         {/* Status Message */}
         <div style={{
-          backgroundColor: '#fef3c7',
-          borderRadius: '8px',
-          padding: '1.5rem',
-          marginBottom: '2rem',
-          border: '1px solid #fbbf24'
+          background: darkTheme.card,
+          border: `1px solid ${darkTheme.border}`,
+          borderRadius: '24px',
+          padding: '2rem',
+          marginBottom: '2rem'
         }}>
-          <div style={{ display: 'flex', alignItems: 'start', gap: '1rem' }}>
-            <div style={{ fontSize: '1.5rem' }}>⏳</div>
-            <div>
+          <div style={{ display: 'flex', alignItems: 'start', gap: '1.5rem' }}>
+            <div style={{ 
+              fontSize: '2rem',
+              background: darkTheme.warningGradient,
+              width: '56px',
+              height: '56px',
+              borderRadius: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>⏳</div>
+            <div style={{ flex: 1 }}>
               <h3 style={{ 
-                fontSize: '1.125rem', 
-                fontWeight: '700',
-                color: '#92400e',
-                marginBottom: '0.5rem'
+                fontSize: '1.25rem', 
+                fontWeight: '800',
+                color: darkTheme.text,
+                marginBottom: '0.75rem',
+                letterSpacing: '-0.02em'
               }}>
                 Your Request is Being Processed
               </h3>
-              <p style={{ color: '#78350f', fontSize: '0.9375rem', lineHeight: '1.6', margin: 0 }}>
+              <p style={{ color: darkTheme.textMuted, fontSize: '0.9375rem', lineHeight: '1.6', margin: 0 }}>
                 Thank you for submitting your security concern. Our team is reviewing your request to verify your identity and the nature of your concern. Once verified, you'll gain access to prioritized threat intelligence, real-time CVE data, and advanced security tools.
               </p>
             </div>
@@ -384,210 +462,199 @@ export default function NonVerifiedDashboard() {
 
         {/* Limited Access Notice */}
         <div style={{
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '1.5rem',
-          marginBottom: '2rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          borderLeft: '4px solid #6b7280'
+          background: darkTheme.card,
+          border: `1px solid ${darkTheme.border}`,
+          borderRadius: '24px',
+          padding: '2rem',
+          marginBottom: '2rem'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-            <span style={{ fontSize: '1.25rem' }}>⚠️</span>
-            <h3 style={{ fontSize: '1rem', fontWeight: '700', color: '#374151', margin: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+            <span style={{ 
+              fontSize: '1.5rem',
+              background: darkTheme.warningGradient,
+              width: '48px',
+              height: '48px',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>⚠️</span>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: '800', color: darkTheme.text, margin: 0 }}>
               Limited Access
             </h3>
           </div>
-          <p style={{ color: '#6b7280', fontSize: '0.9375rem', lineHeight: '1.6', marginBottom: '1rem' }}>
+          <p style={{ color: darkTheme.textMuted, fontSize: '0.9375rem', lineHeight: '1.6', marginBottom: '1rem' }}>
             As a non-verified user, you have access to general security resources only. Verified users receive:
           </p>
-          <ul style={{ color: '#6b7280', fontSize: '0.9375rem', lineHeight: '1.8', margin: 0, paddingLeft: '1.5rem' }}>
-            <li>Prioritized threat intelligence</li>
-            <li>Real-time CVE data and alerts</li>
-            <li>Advanced security reporting tools</li>
-            <li>AI-powered issue analysis</li>
-            <li>Community security issue posting</li>
+          <ul style={{ 
+            color: darkTheme.textMuted, 
+            fontSize: '0.9375rem', 
+            lineHeight: '1.8', 
+            margin: 0, 
+            paddingLeft: '1.5rem',
+            listStyle: 'none'
+          }}>
+            {['Prioritized threat intelligence', 'Real-time CVE data and alerts', 'Advanced security reporting tools', 'AI-powered issue analysis', 'Community security issue posting'].map((item, idx) => (
+              <li key={idx} style={{ marginBottom: '0.5rem', position: 'relative', paddingLeft: '1.5rem' }}>
+                <span style={{ position: 'absolute', left: 0, color: darkTheme.primary }}>•</span>
+                {item}
+              </li>
+            ))}
           </ul>
+        </div>
+
+        {/* Two Column Layout */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+          {/* Threat Submission Form */}
+          <div style={{
+            background: darkTheme.card,
+            border: `1px solid ${darkTheme.border}`,
+            borderRadius: '24px',
+            padding: '2rem'
+          }}>
+            <h2 style={{ 
+              fontSize: '1.25rem', 
+              fontWeight: '800',
+              color: darkTheme.text,
+              marginBottom: '0.5rem',
+              letterSpacing: '-0.02em'
+            }}>
+              Submit Security Threat
+            </h2>
+            <p style={{ color: darkTheme.textMuted, fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+              1 Issue Limit - Low Priority
+            </p>
+            <ThreatSubmissionForm hasSubmitted={hasSubmittedIssue} onSubmitted={handleIssueSubmitted} />
+          </div>
+
+          {/* AI Chat Advisor */}
+          <div style={{
+            background: darkTheme.card,
+            border: `1px solid ${darkTheme.border}`,
+            borderRadius: '24px',
+            padding: '2rem'
+          }}>
+            <h2 style={{ 
+              fontSize: '1.25rem', 
+              fontWeight: '800',
+              color: darkTheme.text,
+              marginBottom: '0.5rem',
+              letterSpacing: '-0.02em'
+            }}>
+              AI Security Advisor
+            </h2>
+            <p style={{ color: darkTheme.textMuted, fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+              Limited features for non-verified users
+            </p>
+            <AIChatAdvisor />
+          </div>
         </div>
 
         {/* Basic Resources */}
         <div style={{
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '1.5rem',
-          marginBottom: '2rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          background: darkTheme.card,
+          border: `1px solid ${darkTheme.border}`,
+          borderRadius: '24px',
+          padding: '2rem',
+          marginBottom: '2rem'
         }}>
           <h2 style={{ 
-            fontSize: '1.125rem', 
-            fontWeight: '700',
-            color: '#374151',
-            marginBottom: '1.5rem'
+            fontSize: '1.25rem', 
+            fontWeight: '800',
+            color: darkTheme.text,
+            marginBottom: '1.5rem',
+            letterSpacing: '-0.02em'
           }}>
             General Security Resources
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{
-              padding: '1rem',
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
-              backgroundColor: '#f9fafb'
-            }}>
-              <h3 style={{ 
-                fontSize: '0.9375rem', 
-                fontWeight: '600',
-                color: '#374151',
-                marginBottom: '0.5rem'
-              }}>
-                CISA Cybersecurity Resources
-              </h3>
-              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.75rem', lineHeight: '1.5' }}>
-                Comprehensive cybersecurity guidance and alerts for organizations.
-              </p>
-              <a
-                href="https://www.cisa.gov/cybersecurity"
-                target="_blank"
-                rel="noopener noreferrer"
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+            {[
+              { title: 'CISA Cybersecurity Resources', desc: 'Comprehensive cybersecurity guidance and alerts for organizations.', link: 'https://www.cisa.gov/cybersecurity' },
+              { title: 'National Vulnerability Database (NVD)', desc: 'Search and browse known security vulnerabilities maintained by NIST.', link: 'https://nvd.nist.gov/vuln/search' },
+              { title: 'CISA Known Exploited Vulnerabilities', desc: 'Catalog of vulnerabilities actively exploited in the wild.', link: 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog' }
+            ].map((resource, idx) => (
+              <div
+                key={idx}
                 style={{
-                  color: '#3b82f6',
-                  textDecoration: 'none',
-                  fontSize: '0.875rem',
-                  fontWeight: '600'
+                  padding: '1.5rem',
+                  background: darkTheme.surface,
+                  border: `1px solid ${darkTheme.border}`,
+                  borderRadius: '20px',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = darkTheme.surfaceHover
+                  e.currentTarget.style.borderColor = darkTheme.borderHover
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = darkTheme.surface
+                  e.currentTarget.style.borderColor = darkTheme.border
+                  e.currentTarget.style.transform = 'translateY(0)'
                 }}
               >
-                Visit CISA →
-              </a>
-            </div>
-            <div style={{
-              padding: '1rem',
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
-              backgroundColor: '#f9fafb'
-            }}>
-              <h3 style={{ 
-                fontSize: '0.9375rem', 
-                fontWeight: '600',
-                color: '#374151',
-                marginBottom: '0.5rem'
-              }}>
-                National Vulnerability Database (NVD)
-              </h3>
-              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.75rem', lineHeight: '1.5' }}>
-                Search and browse known security vulnerabilities maintained by NIST.
-              </p>
-              <a
-                href="https://nvd.nist.gov/vuln/search"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: '#3b82f6',
-                  textDecoration: 'none',
-                  fontSize: '0.875rem',
-                  fontWeight: '600'
-                }}
-              >
-                Search NVD →
-              </a>
-            </div>
-            <div style={{
-              padding: '1rem',
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
-              backgroundColor: '#f9fafb'
-            }}>
-              <h3 style={{ 
-                fontSize: '0.9375rem', 
-                fontWeight: '600',
-                color: '#374151',
-                marginBottom: '0.5rem'
-              }}>
-                CISA Known Exploited Vulnerabilities
-              </h3>
-              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.75rem', lineHeight: '1.5' }}>
-                Catalog of vulnerabilities actively exploited in the wild.
-              </p>
-              <a
-                href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: '#3b82f6',
-                  textDecoration: 'none',
-                  fontSize: '0.875rem',
-                  fontWeight: '600'
-                }}
-              >
-                View KEV Catalog →
-              </a>
-            </div>
+                <h3 style={{ 
+                  fontSize: '0.9375rem', 
+                  fontWeight: '700',
+                  color: darkTheme.text,
+                  marginBottom: '0.75rem'
+                }}>
+                  {resource.title}
+                </h3>
+                <p style={{ color: darkTheme.textMuted, fontSize: '0.875rem', marginBottom: '1rem', lineHeight: '1.5' }}>
+                  {resource.desc}
+                </p>
+                <a
+                  href={resource.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: darkTheme.primary,
+                    textDecoration: 'none',
+                    fontSize: '0.875rem',
+                    fontWeight: '700',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  Visit →
+                </a>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Threat Submission Form */}
+        {/* Navigation Actions */}
         <div style={{
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '1.5rem',
-          marginBottom: '2rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-        }}>
-          <h2 style={{ 
-            fontSize: '1.125rem', 
-            fontWeight: '700',
-            color: '#374151',
-            marginBottom: '1rem'
-          }}>
-            Submit Security Threat (Low Priority) - 1 Issue Limit
-          </h2>
-          <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
-            As a non-verified user, you can submit 1 security threat. It will be marked as low priority and reviewed by our team. Get verified to submit unlimited issues with AI analysis.
-          </p>
-          <ThreatSubmissionForm hasSubmitted={hasSubmittedIssue} onSubmitted={handleIssueSubmitted} />
-        </div>
-
-        {/* AI Chat Advisor */}
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '1.5rem',
-          marginBottom: '2rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-        }}>
-          <h2 style={{ 
-            fontSize: '1.125rem', 
-            fontWeight: '700',
-            color: '#374151',
-            marginBottom: '1rem'
-          }}>
-            AI Security Advisor
-          </h2>
-          <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
-            Chat with our AI advisor to get guidance on using the platform and general security advice. Features are limited for non-verified users.
-          </p>
-          <AIChatAdvisor />
-        </div>
-
-        {/* Simple Actions */}
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '1.5rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          background: darkTheme.card,
+          border: `1px solid ${darkTheme.border}`,
+          borderRadius: '24px',
+          padding: '2rem',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '0.75rem'
+          gap: '1rem'
         }}>
           <button
             onClick={() => router.push('/dashboard/verified')}
             style={{
-              width: '100%',
-              padding: '0.75rem',
+              flex: 1,
+              padding: '1rem',
               fontSize: '0.9375rem',
-              fontWeight: '600',
-              backgroundColor: '#10b981',
+              fontWeight: '700',
+              background: darkTheme.successGradient,
               color: 'white',
               border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
+              borderRadius: '16px',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.boxShadow = `0 8px 24px ${darkTheme.success}40`
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.boxShadow = 'none'
             }}
           >
             View Verified Dashboard
@@ -595,15 +662,24 @@ export default function NonVerifiedDashboard() {
           <button
             onClick={() => router.push('/portal')}
             style={{
-              width: '100%',
-              padding: '0.75rem',
+              flex: 1,
+              padding: '1rem',
               fontSize: '0.9375rem',
-              fontWeight: '600',
-              backgroundColor: '#6b7280',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
+              fontWeight: '700',
+              background: darkTheme.surface,
+              color: darkTheme.text,
+              border: `1px solid ${darkTheme.border}`,
+              borderRadius: '16px',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = darkTheme.surfaceHover
+              e.currentTarget.style.borderColor = darkTheme.borderHover
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = darkTheme.surface
+              e.currentTarget.style.borderColor = darkTheme.border
             }}
           >
             Go to Portal
