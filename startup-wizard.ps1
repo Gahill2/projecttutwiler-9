@@ -1190,9 +1190,8 @@ function Show-StartServicesStep {
             
             if ($ollamaRunning) {
                 $progressBar.Value = 80
-                $statusText.Text = "Pulling Ollama models in background (this may take 10-20 minutes)..."
+                $statusText.Text = "Checking Ollama models..."
                 $statusTextBox.AppendText("`r`n=== Ollama Models ===`r`n")
-                $statusTextBox.AppendText("Note: Model pulling runs in background. You can continue and models will be ready when needed.`r`n")
                 $form.Refresh()
                 [System.Windows.Forms.Application]::DoEvents()
                 
@@ -1202,66 +1201,90 @@ function Show-StartServicesStep {
                 $containerName = "projecttutwiler-9-ollama-1"
                 $models = @("llama3.1:8b", "nomic-embed-text")
                 
-                # Start model pulling in background job (non-blocking)
-                $modelPullJob = Start-Job -ScriptBlock {
-                    param($containerName, $models)
-                    $results = @()
-                    foreach ($model in $models) {
-                        try {
-                            $pullOutput = docker exec $containerName ollama pull $model 2>&1 | Out-String
-                            if ($LASTEXITCODE -eq 0) {
-                                $results += "Model $model pulled successfully"
-                            } else {
-                                $results += "Model $model pull failed (may already be installed): $pullOutput"
-                            }
-                        } catch {
-                            $results += "Model $model pull error: $($_.Exception.Message)"
-                        }
-                    }
-                    return $results
-                } -ArgumentList $containerName, $models
-                
-                # Try to pull first model with timeout (5 minutes max per model)
-                $firstModel = $models[0]
-                $statusText.Text = "Starting Ollama model pull: $firstModel (will continue in background)..."
-                $statusTextBox.AppendText("Starting pull for $firstModel (5 minute timeout)...`r`n")
+                # Check which models already exist
+                $statusTextBox.AppendText("Checking for existing models...`r`n")
                 $form.Refresh()
                 [System.Windows.Forms.Application]::DoEvents()
                 
                 try {
-                    # Use timeout for first model only
-                    $pullProcess = Start-Process -FilePath "docker" -ArgumentList "exec", $containerName, "ollama", "pull", $firstModel -NoNewWindow -PassThru -RedirectStandardOutput "nul" -RedirectStandardError "nul"
+                    $existingModelsOutput = docker exec $containerName ollama list 2>&1 | Out-String
+                    $existingModels = @()
+                    if ($LASTEXITCODE -eq 0 -and $existingModelsOutput) {
+                        # Parse model list (format: "NAME    SIZE    MODIFIED")
+                        $lines = $existingModelsOutput -split "`n" | Where-Object { $_.Trim() -ne "" -and $_ -notmatch "NAME.*SIZE" }
+                        foreach ($line in $lines) {
+                            $modelName = ($line -split '\s+')[0]
+                            if ($modelName) {
+                                $existingModels += $modelName
+                            }
+                        }
+                    }
                     
-                    # Wait max 5 minutes for first model, then continue
-                    $timeoutSeconds = 0
-                    $maxTimeout = 300  # 5 minutes
-                    while (-not $pullProcess.HasExited -and $timeoutSeconds -lt $maxTimeout) {
-                        Start-Sleep -Seconds 2
-                        $timeoutSeconds += 2
-                        $minutes = [Math]::Floor($timeoutSeconds / 60)
-                        $seconds = $timeoutSeconds % 60
-                        $statusText.Text = "Pulling $firstModel... ($minutes`m $seconds`s / 5m max) - Will continue in background if needed"
+                    $statusTextBox.AppendText("Found existing models: $($existingModels.Count)`r`n")
+                    if ($existingModels.Count -gt 0) {
+                        $statusTextBox.AppendText("Existing: $($existingModels -join ', ')`r`n")
+                    }
+                    $form.Refresh()
+                    [System.Windows.Forms.Application]::DoEvents()
+                    
+                    # Determine which models need to be pulled
+                    $modelsToPull = @()
+                    foreach ($model in $models) {
+                        $modelExists = $false
+                        foreach ($existing in $existingModels) {
+                            if ($existing -eq $model -or $existing.StartsWith($model)) {
+                                $modelExists = $true
+                                break
+                            }
+                        }
+                        if (-not $modelExists) {
+                            $modelsToPull += $model
+                        } else {
+                            $statusTextBox.AppendText("[OK] Model $model already exists - skipping pull`r`n")
+                        }
+                    }
+                    
+                    if ($modelsToPull.Count -eq 0) {
+                        $statusTextBox.AppendText("`r`n[OK] All required models already exist! No pull needed.`r`n")
+                        $statusText.Text = "All Ollama models are ready!"
+                        $progressBar.Value = 95
+                        $form.Refresh()
+                        [System.Windows.Forms.Application]::DoEvents()
+                    } else {
+                        $statusTextBox.AppendText("`r`nModels to pull: $($modelsToPull -join ', ')`r`n")
+                        $statusTextBox.AppendText("Note: Model pulling will run in background. You can continue.`r`n")
+                        $statusText.Text = "Pulling missing Ollama models in background..."
+                        $form.Refresh()
+                        [System.Windows.Forms.Application]::DoEvents()
+                        
+                        # Pull missing models in background (non-blocking)
+                        foreach ($model in $modelsToPull) {
+                            $statusTextBox.AppendText("Starting background pull for $model...`r`n")
+                            Start-Job -ScriptBlock {
+                                param($containerName, $model)
+                                try {
+                                    docker exec $containerName ollama pull $model 2>&1 | Out-Null
+                                } catch {
+                                    # Ignore errors - model will be pulled when needed
+                                }
+                            } -ArgumentList $containerName, $model | Out-Null
+                        }
+                        
+                        $statusTextBox.AppendText("`r`n[INFO] Model pulls started in background.`r`n")
+                        $statusTextBox.AppendText("The application will work immediately. AI features will use models when ready.`r`n")
+                        $statusText.Text = "Models pulling in background - you can proceed!"
+                        $progressBar.Value = 95
                         $form.Refresh()
                         [System.Windows.Forms.Application]::DoEvents()
                     }
-                    
-                    if (-not $pullProcess.HasExited) {
-                        $statusTextBox.AppendText("Model pull taking longer than 5 minutes - continuing in background...`r`n")
-                        $statusText.Text = "Model pull continuing in background. You can proceed - models will be ready when needed."
-                    } else {
-                        $statusTextBox.AppendText("First model pull completed or already installed.`r`n")
-                    }
                 } catch {
-                    $statusTextBox.AppendText("Could not start model pull: $($_.Exception.Message)`r`n")
+                    $statusTextBox.AppendText("[WARN] Could not check existing models: $($_.Exception.Message)`r`n")
                     $statusTextBox.AppendText("Models will be pulled automatically when AI features are first used.`r`n")
+                    $statusText.Text = "Models will be ready when needed - you can proceed!"
+                    $progressBar.Value = 95
+                    $form.Refresh()
+                    [System.Windows.Forms.Application]::DoEvents()
                 }
-                
-                $progressBar.Value = 95
-                $statusText.Text = "Services ready! Ollama models pulling in background (if needed)."
-                $statusTextBox.AppendText("`r`nNote: Ollama models can take 10-20 minutes to download.`r`n")
-                $statusTextBox.AppendText("The application will work, but AI features may be slower until models are ready.`r`n")
-                $form.Refresh()
-                [System.Windows.Forms.Application]::DoEvents()
             }
         }
         
