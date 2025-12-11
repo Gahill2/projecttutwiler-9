@@ -479,7 +479,7 @@ function AIChatPanel({ issueId, onClose }) {
       }
       // For general chat, use direct message (no verbose prompt)
 
-      timeoutId = setTimeout(() => controller.abort(), 120000) // 120 second timeout (AI service may be slow, especially on first request)
+      timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout - Docker + Ollama may need more time for first request
 
       const response = await fetch(`${API_URL}/ai-rag/chat`, {
         method: 'POST',
@@ -1443,9 +1443,9 @@ export default function VerifiedDashboard() {
                     // Simplified, more direct prompt
                     const conversationPrompt = userMessage.content
 
-                    // Add timeout to prevent hanging
+                    // Add timeout to prevent hanging - shorter timeout for faster feedback
                     const controller = new AbortController()
-                    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+                    const timeoutId = setTimeout(() => controller.abort(), 20000) // 20 second timeout - optimized backend should respond faster
 
                     const response = await fetch(`${API_URL}/ai-rag/chat`, {
                       method: 'POST',
@@ -1475,7 +1475,7 @@ export default function VerifiedDashboard() {
                   } catch (err) {
                     let errorMsg = 'Sorry, I encountered an error. Please try again later.'
                     if (err.name === 'AbortError') {
-                      errorMsg = 'Request timed out. The AI service may be slow. Please try again.'
+                      errorMsg = 'Request timed out after 45 seconds. The AI service may be slow. Please try again.'
                     } else if (err instanceof Error) {
                       errorMsg = `Error: ${err.message}`
                     }
@@ -1573,9 +1573,9 @@ export default function VerifiedDashboard() {
 
                       try {
                         // For submitted CVEs, provide formal structured advice
-                        // Add timeout to prevent hanging - increased for AI service
+                        // Add timeout to prevent hanging - shorter timeout for faster feedback
                         const controller = new AbortController()
-                        const timeoutId = setTimeout(() => controller.abort(), 120000) // 120 second timeout (AI service may be slow)
+                        const timeoutId = setTimeout(() => controller.abort(), 20000) // 20 second timeout - optimized backend should respond faster
 
                         // Simplified prompt for faster response
                         const response = await fetch(`${API_URL}/ai-rag/chat`, {
@@ -1603,7 +1603,7 @@ export default function VerifiedDashboard() {
                       } catch (err) {
                         let errorMsg = 'Error: Could not get advice. Please try again.'
                         if (err.name === 'AbortError') {
-                          errorMsg = 'Request timed out after 2 minutes. The AI service may be slow. Please try again or refresh the page.'
+                          errorMsg = 'Request timed out after 45 seconds. The AI service may be slow. Please try again.'
                         } else if (err instanceof Error) {
                           errorMsg = `Error: ${err.message}`
                         }

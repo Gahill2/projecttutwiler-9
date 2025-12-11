@@ -782,10 +782,10 @@ export default function AdminAnalytics() {
             </nav>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0 }}>
-            <button
+          <button
               onClick={() => router.push('/portal')}
-              style={{
-                padding: '0.625rem 1.25rem',
+            style={{
+              padding: '0.625rem 1.25rem',
                 background: 'rgba(0, 0, 0, 0.3)',
                 color: '#ffffff',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
@@ -806,11 +806,11 @@ export default function AdminAnalytics() {
                 e.currentTarget.style.background = 'rgba(0, 0, 0, 0.3)'
                 e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'
                 e.currentTarget.style.transform = 'translateY(0)'
-              }}
-            >
+            }}
+          >
               Back to Portal
-            </button>
-          </div>
+          </button>
+        </div>
         </header>
 
         {/* Dashboard Content */}
@@ -1498,16 +1498,16 @@ function DashboardTab({ analytics, darkTheme, graphView, setGraphView, hoveredCa
             gap: '1rem'
           }}>
             <div>
-              <h2 style={{
+            <h2 style={{
                 fontSize: '1.5rem',
-                fontWeight: '800',
-                color: darkTheme.text,
-                margin: 0,
+              fontWeight: '800',
+              color: darkTheme.text,
+              margin: 0,
                 marginBottom: '0.25rem',
-                letterSpacing: '-0.02em'
-              }}>
-                Analytics Overview
-              </h2>
+              letterSpacing: '-0.02em'
+            }}>
+              Analytics Overview
+            </h2>
               <p style={{
                 fontSize: '0.8125rem',
                 color: darkTheme.textMuted,
@@ -1537,25 +1537,25 @@ function DashboardTab({ analytics, darkTheme, graphView, setGraphView, hoveredCa
                 <option value="30d">Last 30 Days</option>
                 <option value="90d">Last 90 Days</option>
               </select>
-              <select
-                value={graphView}
-                onChange={(e) => setGraphView(e.target.value)}
-                style={{
+            <select
+              value={graphView}
+              onChange={(e) => setGraphView(e.target.value)}
+              style={{
                   padding: '0.625rem 1rem',
                   background: darkTheme.surface,
-                  color: darkTheme.text,
-                  border: `1px solid ${darkTheme.border}`,
+                color: darkTheme.text,
+                border: `1px solid ${darkTheme.border}`,
                   borderRadius: '10px',
                   fontSize: '0.8125rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  outline: 'none'
-                }}
-              >
-                <option value="users">User Registrations</option>
-                <option value="verification">Verification Rates</option>
-                <option value="activity">Activity Trends</option>
-              </select>
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+            >
+              <option value="users">User Registrations</option>
+              <option value="verification">Verification Rates</option>
+              <option value="activity">Activity Trends</option>
+            </select>
               <button
                 onClick={handleRefresh}
                 style={{
@@ -1594,7 +1594,7 @@ function DashboardTab({ analytics, darkTheme, graphView, setGraphView, hoveredCa
               >
                 📥 Export
               </button>
-            </div>
+          </div>
           </div>
 
           {/* Key Metrics Row */}
@@ -1659,7 +1659,7 @@ function DashboardTab({ analytics, darkTheme, graphView, setGraphView, hoveredCa
           </div>
 
           {/* Main Chart Area */}
-          <div style={{
+        <div style={{
             flex: 1,
             background: darkTheme.surface,
             border: `1px solid ${darkTheme.border}`,
@@ -1678,7 +1678,7 @@ function DashboardTab({ analytics, darkTheme, graphView, setGraphView, hoveredCa
           </div>
 
           {/* Quick Stats Footer */}
-          <div style={{
+            <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
             gap: '1rem',
@@ -1733,23 +1733,23 @@ function DashboardTab({ analytics, darkTheme, graphView, setGraphView, hoveredCa
       {/* Sidebar Metrics - Compact */}
       <div style={{ gridColumn: 'span 3', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Status Distribution */}
-        <BentoCard
-          id="status-dist"
+      <BentoCard
+        id="status-dist"
           colSpan={3}
-          rowSpan={2}
-          darkTheme={darkTheme}
-          hovered={hoveredCard === 'status-dist'}
-          onHover={() => setHoveredCard('status-dist')}
-          onLeave={() => setHoveredCard(null)}
-        >
-          <h2 style={{
+        rowSpan={2}
+        darkTheme={darkTheme}
+        hovered={hoveredCard === 'status-dist'}
+        onHover={() => setHoveredCard('status-dist')}
+        onLeave={() => setHoveredCard(null)}
+      >
+        <h2 style={{
             fontSize: '1rem',
-            fontWeight: '800',
-            color: darkTheme.text,
+          fontWeight: '800',
+          color: darkTheme.text,
             marginBottom: '1rem',
-            letterSpacing: '-0.02em'
-          }}>
-            Status Distribution
+          letterSpacing: '-0.02em'
+        }}>
+          Status Distribution
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {Object.entries(analytics.statusDistribution).map(([status, count]) => (
@@ -1757,58 +1757,58 @@ function DashboardTab({ analytics, darkTheme, graphView, setGraphView, hoveredCa
                 key={status}
                 style={{
                   padding: '0.875rem',
-                  background: darkTheme.surface,
-                  border: `1px solid ${darkTheme.border}`,
+                background: darkTheme.surface,
+                border: `1px solid ${darkTheme.border}`,
                   borderRadius: '10px',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'
-                  e.currentTarget.style.transform = 'translateX(4px)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'
-                  e.currentTarget.style.transform = 'translateX(0)'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                transition: 'all 0.3s ease',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'
+                e.currentTarget.style.transform = 'translateX(4px)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'
+                e.currentTarget.style.transform = 'translateX(0)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ fontSize: '0.75rem', color: darkTheme.textMuted, textTransform: 'uppercase', fontWeight: '600' }}>
-                    {status}
-                  </div>
+                  {status}
+                </div>
                   <div style={{ fontSize: '1.25rem', fontWeight: '800', color: darkTheme.text }}>
-                    {count}
-                  </div>
+                  {count}
+                </div>
                 </div>
               </div>
             ))}
           </div>
-        </BentoCard>
+      </BentoCard>
 
         {/* Activity Metrics */}
-        <BentoCard
+      <BentoCard
           id="activity-24h"
-          colSpan={3}
-          rowSpan={1}
-          darkTheme={darkTheme}
+        colSpan={3}
+        rowSpan={1}
+        darkTheme={darkTheme}
           hovered={hoveredCard === 'activity-24h'}
           onHover={() => setHoveredCard('activity-24h')}
-          onLeave={() => setHoveredCard(null)}
-        >
+        onLeave={() => setHoveredCard(null)}
+      >
           <MetricCard title="Activity (24h)" value={analytics.recentActivity24h.toLocaleString()} color={darkTheme.danger} darkTheme={darkTheme} />
-        </BentoCard>
+      </BentoCard>
 
-        <BentoCard
+      <BentoCard
           id="activity-7d"
-          colSpan={3}
-          rowSpan={1}
-          darkTheme={darkTheme}
+        colSpan={3}
+        rowSpan={1}
+        darkTheme={darkTheme}
           hovered={hoveredCard === 'activity-7d'}
           onHover={() => setHoveredCard('activity-7d')}
-          onLeave={() => setHoveredCard(null)}
-        >
+        onLeave={() => setHoveredCard(null)}
+      >
           <MetricCard title="Activity (7d)" value={analytics.recentActivity7d.toLocaleString()} color={darkTheme.warning} darkTheme={darkTheme} />
-        </BentoCard>
+      </BentoCard>
       </div>
 
       {/* CVE Metrics Row */}
@@ -1835,7 +1835,7 @@ function DashboardTab({ analytics, darkTheme, graphView, setGraphView, hoveredCa
       >
         <MetricCard title="Verified CVEs" value={(analytics.verifiedCveSubmissions || 0).toLocaleString()} color={darkTheme.success} darkTheme={darkTheme} />
       </BentoCard>
-    </div>
+        </div>
   )
 }
 
@@ -2815,16 +2815,16 @@ function ActionsTab({ darkTheme, analytics, onSwitchTab }) {
               letterSpacing: '-0.02em'
             }}>
               {analytics.pendingCveSubmissions} Pending Reviews
-            </div>
+                    </div>
             <div style={{ fontSize: '0.9375rem', color: darkTheme.textMuted, lineHeight: '1.6' }}>
               Review and prioritize pending CVE submissions requiring immediate attention
-            </div>
-          </div>
-        </div>
-      )}
+                    </div>
+                  </div>
+                    </div>
+                  )}
 
       {analytics && analytics.criticalCveSubmissions && analytics.criticalCveSubmissions > 0 && (
-        <div style={{
+                    <div style={{
           background: darkTheme.card,
           border: `1px solid ${darkTheme.danger}40`,
           borderRadius: '24px',
@@ -2864,13 +2864,13 @@ function ActionsTab({ darkTheme, analytics, onSwitchTab }) {
               letterSpacing: '-0.02em'
             }}>
               {analytics.criticalCveSubmissions} Critical CVEs
-            </div>
+                </div>
             <div style={{ fontSize: '0.9375rem', color: darkTheme.textMuted, lineHeight: '1.6' }}>
               Immediate attention required for critical vulnerabilities that pose significant risk
             </div>
           </div>
-        </div>
-      )}
+                    </div>
+                  )}
 
       <div style={{
         background: darkTheme.card,
@@ -3059,7 +3059,7 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* Compact Header */}
-      <div style={{
+        <div style={{
         background: darkTheme.card,
         border: `1px solid ${darkTheme.border}`,
         borderRadius: '16px',
@@ -3071,18 +3071,18 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
         gap: '1rem'
       }}>
         <div>
-          <h2 style={{
+        <h2 style={{
             fontSize: '1.125rem',
-            fontWeight: '800',
+          fontWeight: '800',
             color: darkTheme.text,
             marginBottom: '0.25rem',
-            letterSpacing: '-0.02em'
-          }}>
-            AI Threat Scanner
+          letterSpacing: '-0.02em'
+        }}>
+          AI Threat Scanner
           </h2>
           <p style={{ fontSize: '0.8125rem', color: darkTheme.textMuted, margin: 0 }}>
             Analyze CVEs for suspicious or low-quality submissions
-          </p>
+        </p>
         </div>
         <button
           onClick={handleScanAll}
@@ -3176,7 +3176,7 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
                     }}>
                       {cve.is_verified_user ? 'Verified' : 'Non-Verified'}
                     </span>
-                  </div>
+                    </div>
                   <p style={{
                     color: darkTheme.text,
                     fontSize: '0.8125rem',
@@ -3228,13 +3228,13 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
             onClick={() => setViewMode('grid')}
-            style={{
-              padding: '0.5rem 1rem',
+                            style={{
+                              padding: '0.5rem 1rem',
               background: viewMode === 'grid' ? darkTheme.primaryGradient : darkTheme.surface,
               color: viewMode === 'grid' ? 'white' : darkTheme.text,
               border: `1px solid ${darkTheme.border}`,
               borderRadius: '8px',
-              fontSize: '0.8125rem',
+                              fontSize: '0.8125rem',
               fontWeight: '700',
               cursor: 'pointer'
             }}
@@ -3280,8 +3280,8 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
                 </h3>
                 <span style={{ fontSize: '0.75rem', color: darkTheme.textMuted }}>
                   Immediate action required
-                </span>
-              </div>
+                          </span>
+                      </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
                 {categorizedThreats.critical.map((cve) => {
                   const actionItem = actionItems[cve.submission_id || cve.id]
@@ -3310,7 +3310,7 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
                           }}>
                             {cve.type === 'user' ? (cve.is_verified_user ? 'Verified User' : 'Non-Verified') : 'Pinecone'}
                           </span>
-                        </div>
+                    </div>
                       </div>
                       {!actionItem && (
                         <button
@@ -3351,31 +3351,31 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
                         <div style={{ fontSize: '0.75rem', color: darkTheme.textMuted }}>
                           Contact: {actionItem.contactInfo}
                         </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
           {/* Flagged Threats */}
           {categorizedThreats.flagged.length > 0 && (
-            <div style={{
-              background: darkTheme.card,
+        <div style={{
+        background: darkTheme.card,
               border: `2px solid ${darkTheme.danger}`,
               borderRadius: '16px',
-              padding: '1.5rem'
-            }}>
+        padding: '1.5rem'
+      }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 style={{
-                  fontSize: '1.125rem',
-                  fontWeight: '800',
+        <h3 style={{
+          fontSize: '1.125rem',
+          fontWeight: '800',
                   color: darkTheme.danger,
                   margin: 0
-                }}>
+        }}>
                   ⚠️ Flagged Threats ({categorizedThreats.flagged.length})
-                </h3>
+        </h3>
                 <span style={{ fontSize: '0.75rem', color: darkTheme.textMuted }}>
                   Requires review
                 </span>
@@ -3402,27 +3402,27 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
                         </div>
                       </div>
                       {!actionItem && (
-                        <button
+              <button
                           onClick={() => generateActionItem(cve)}
-                          style={{
+                style={{
                             width: '100%',
                             padding: '0.625rem',
-                            background: darkTheme.primaryGradient,
-                            color: 'white',
-                            border: 'none',
+                  background: darkTheme.primaryGradient,
+                  color: 'white',
+                  border: 'none',
                             borderRadius: '8px',
                             fontSize: '0.8125rem',
-                            fontWeight: '700',
-                            cursor: 'pointer'
-                          }}
-                        >
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
                           Generate Action Plan
-                        </button>
-                      )}
+              </button>
+            )}
                       {actionItem && (
                         <div style={{ fontSize: '0.75rem', color: darkTheme.textMuted }}>
                           Contact: {actionItem.contactInfo}
-                        </div>
+          </div>
                       )}
                     </div>
                   )
@@ -3440,7 +3440,7 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
               moderate: darkTheme.primary,
               low: darkTheme.success
             }
-            return (
+              return (
               <div key={category} style={{
                 background: darkTheme.card,
                 border: `1px solid ${colors[category]}40`,
@@ -3459,10 +3459,10 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
                   {threats.slice(0, 6).map((cve) => (
                     <div
                       key={cve.submission_id || cve.id}
-                      style={{
+                  style={{
                         padding: '0.875rem',
-                        background: darkTheme.surface,
-                        border: `1px solid ${darkTheme.border}`,
+                    background: darkTheme.surface,
+                    border: `1px solid ${darkTheme.border}`,
                         borderRadius: '12px',
                         fontSize: '0.8125rem',
                         color: darkTheme.text
@@ -3487,7 +3487,7 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
             <h3 style={{
               fontSize: '1rem',
               fontWeight: '800',
-              color: darkTheme.text,
+                      color: darkTheme.text,
               letterSpacing: '-0.02em',
               margin: 0
             }}>
@@ -3497,7 +3497,7 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
               <span>User: {cves.length}</span>
               <span>•</span>
               <span>Pinecone: {pineconeCves.length}</span>
-            </div>
+                  </div>
           </div>
         
         {/* Grid of CVEs */}
@@ -3516,27 +3516,27 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
             return (
               <div
                 key={cve.submission_id}
-                style={{
+                    style={{
                   padding: '1rem',
                   background: analysis?.is_flagged ? 'rgba(239, 68, 68, 0.05)' : darkTheme.surface,
                   border: `1px solid ${analysis?.is_flagged ? 'rgba(239, 68, 68, 0.4)' : darkTheme.border}`,
                   borderRadius: '12px',
-                  transition: 'all 0.3s ease',
+                      transition: 'all 0.3s ease',
                   cursor: 'pointer',
                   position: 'relative'
-                }}
+                    }}
                 onClick={() => !isAnalyzing && !analysis && onAnalyze(cve.submission_id)}
-                onMouseEnter={(e) => {
+                    onMouseEnter={(e) => {
                   if (!isAnalyzing) {
                     e.currentTarget.style.background = analysis?.is_flagged ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255, 255, 255, 0.06)'
-                    e.currentTarget.style.transform = 'translateY(-2px)'
+                        e.currentTarget.style.transform = 'translateY(-2px)'
                     e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.2)'
-                  }
-                }}
-                onMouseLeave={(e) => {
+                      }
+                    }}
+                    onMouseLeave={(e) => {
                   if (!isAnalyzing) {
                     e.currentTarget.style.background = analysis?.is_flagged ? 'rgba(239, 68, 68, 0.05)' : darkTheme.surface
-                    e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.transform = 'translateY(0)'
                     e.currentTarget.style.boxShadow = 'none'
                   }
                 }}
@@ -3552,7 +3552,7 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
                   }}>
                     {cve.is_verified_user ? 'Verified' : 'Non-Verified'}
                   </span>
-                  <span style={{
+                    <span style={{
                     padding: '0.25rem 0.75rem',
                     background: getSeverityGradient(cve.severity, darkTheme),
                     color: 'white',
@@ -3610,9 +3610,9 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
                   {cve.description.substring(0, 140)}...
                 </p>
                 {analysis && (
-                  <div style={{
+                <div style={{
                     fontSize: '0.75rem',
-                    color: darkTheme.textMuted,
+                  color: darkTheme.textMuted,
                     padding: '0.75rem',
                     background: darkTheme.card,
                     borderRadius: '8px',
@@ -3620,122 +3620,122 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
                     marginTop: '0.5rem',
                     maxHeight: '60px',
                     overflow: 'hidden'
-                  }}>
+                }}>
                     {analysis.analysis.substring(0, 120)}...
-                  </div>
-                )}
+          </div>
+        )}
                 {!analysis && !isAnalyzing && (
-                  <div style={{
-                    fontSize: '0.75rem',
+        <div style={{
+              fontSize: '0.75rem',
                     color: darkTheme.primary,
                     marginTop: '0.5rem',
                     fontWeight: '600'
-                  }}>
+            }}>
                     Click to analyze →
-                  </div>
+            </div>
                 )}
               </div>
             )
           })}
           
           {/* Pinecone CVEs */}
-          {pineconeCves.map((cve, idx) => {
-            const analysis = threatAnalyses[cve.id]
-            const isAnalyzing = analyzingCves.has(cve.id)
-            return (
-              <div
-                key={cve.id || idx}
-                onClick={() => !isAnalyzing && onAnalyzeCve(cve.id, cve.description)}
-                style={{
+            {pineconeCves.map((cve, idx) => {
+              const analysis = threatAnalyses[cve.id]
+              const isAnalyzing = analyzingCves.has(cve.id)
+              return (
+                <div
+                  key={cve.id || idx}
+                  onClick={() => !isAnalyzing && onAnalyzeCve(cve.id, cve.description)}
+                  style={{
                   padding: '1rem',
                   background: analysis?.is_flagged ? 'rgba(239, 68, 68, 0.05)' : darkTheme.surface,
-                  border: `1px solid ${analysis?.is_flagged ? 'rgba(239, 68, 68, 0.4)' : darkTheme.border}`,
+                    border: `1px solid ${analysis?.is_flagged ? 'rgba(239, 68, 68, 0.4)' : darkTheme.border}`,
                   borderRadius: '12px',
-                  transition: 'all 0.3s ease',
-                  cursor: isAnalyzing ? 'wait' : 'pointer',
-                  position: 'relative'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isAnalyzing) {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'
-                    e.currentTarget.style.borderColor = darkTheme.borderHover
-                    e.currentTarget.style.transform = 'translateY(-2px)'
+                    transition: 'all 0.3s ease',
+                    cursor: isAnalyzing ? 'wait' : 'pointer',
+                    position: 'relative'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isAnalyzing) {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'
+                      e.currentTarget.style.borderColor = darkTheme.borderHover
+                      e.currentTarget.style.transform = 'translateY(-2px)'
                     e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.2)'
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isAnalyzing) {
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isAnalyzing) {
                     e.currentTarget.style.background = analysis?.is_flagged ? 'rgba(239, 68, 68, 0.05)' : darkTheme.surface
-                    e.currentTarget.style.borderColor = analysis?.is_flagged ? 'rgba(239, 68, 68, 0.4)' : darkTheme.border
-                    e.currentTarget.style.transform = 'translateY(0)'
-                    e.currentTarget.style.boxShadow = 'none'
-                  }
-                }}
-              >
+                      e.currentTarget.style.borderColor = analysis?.is_flagged ? 'rgba(239, 68, 68, 0.4)' : darkTheme.border
+                      e.currentTarget.style.transform = 'translateY(0)'
+                      e.currentTarget.style.boxShadow = 'none'
+                    }
+                  }}
+                >
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={{
+                    <span style={{
                     padding: '0.25rem 0.75rem',
-                    background: darkTheme.primaryGradient,
-                    color: 'white',
+                      background: darkTheme.primaryGradient,
+                      color: 'white',
                     fontSize: '0.6875rem',
-                    fontWeight: '700',
+                      fontWeight: '700',
                     borderRadius: '8px',
                     textTransform: 'uppercase'
-                  }}>
+                    }}>
                     {cve.source || 'NVD'}
-                  </span>
-                  {cve.base_score && (
-                    <span style={{
+                    </span>
+                    {cve.base_score && (
+                      <span style={{
                       padding: '0.25rem 0.75rem',
-                      background: darkTheme.surfaceHover,
-                      color: darkTheme.text,
+                        background: darkTheme.surfaceHover,
+                        color: darkTheme.text,
                       fontSize: '0.6875rem',
                       fontWeight: '700',
                       borderRadius: '8px',
-                      border: `1px solid ${darkTheme.border}`
-                    }}>
-                      CVSS: {cve.base_score.toFixed(1)}
-                    </span>
-                  )}
+                        border: `1px solid ${darkTheme.border}`
+                      }}>
+                        CVSS: {cve.base_score.toFixed(1)}
+                      </span>
+                    )}
                   {analysis?.is_flagged && (
-                    <span style={{
+                        <span style={{
                       padding: '0.25rem 0.75rem',
-                      background: darkTheme.dangerGradient,
-                      color: 'white',
+                            background: darkTheme.dangerGradient,
+                            color: 'white',
                       fontSize: '0.6875rem',
-                      fontWeight: '700',
+                            fontWeight: '700',
                       borderRadius: '8px',
                       textTransform: 'uppercase'
-                    }}>
-                      FLAGGED
-                    </span>
-                  )}
-                  {isAnalyzing && (
-                    <span style={{
+                          }}>
+                            FLAGGED
+                          </span>
+                    )}
+                    {isAnalyzing && (
+                      <span style={{
                       padding: '0.25rem 0.75rem',
                       background: darkTheme.primaryGradient,
                       color: 'white',
                       fontSize: '0.6875rem',
-                      fontWeight: '700',
+                        fontWeight: '700',
                       borderRadius: '8px'
-                    }}>
-                      Analyzing...
-                    </span>
-                  )}
-                </div>
-                <p style={{
-                  color: darkTheme.text,
+                      }}>
+                        Analyzing...
+                      </span>
+                    )}
+                  </div>
+                  <p style={{
+                    color: darkTheme.text,
                   fontSize: '0.8125rem',
                   marginBottom: '0.5rem',
                   lineHeight: '1.5',
-                  fontWeight: '500'
-                }}>
+                    fontWeight: '500'
+                  }}>
                   {cve.description.substring(0, 140)}...
-                </p>
-                {analysis && (
-                  <div style={{
+                  </p>
+                  {analysis && (
+                    <div style={{
                     fontSize: '0.75rem',
-                    color: darkTheme.textMuted,
+                      color: darkTheme.textMuted,
                     padding: '0.75rem',
                     background: darkTheme.card,
                     borderRadius: '8px',
@@ -3745,21 +3745,21 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
                     overflow: 'hidden'
                   }}>
                     {analysis.analysis.substring(0, 120)}...
-                  </div>
-                )}
-                {!analysis && !isAnalyzing && (
-                  <div style={{
+                    </div>
+                  )}
+                  {!analysis && !isAnalyzing && (
+                    <div style={{
                     fontSize: '0.75rem',
                     color: darkTheme.primary,
                     marginTop: '0.5rem',
                     fontWeight: '600'
-                  }}>
+                    }}>
                     Click to analyze →
-                  </div>
-                )}
-              </div>
-            )
-          })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           
           {cves.length === 0 && pineconeCves.length === 0 && (
             <div style={{ 
@@ -3788,7 +3788,7 @@ function AiScannerTab({ cves, pineconeCves, threatAnalyses, darkTheme, onAnalyze
               )}
             </div>
           )}
-        </div>
+      </div>
         </div>
       )}
     </div>

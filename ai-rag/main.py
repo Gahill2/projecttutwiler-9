@@ -194,25 +194,26 @@ async def analyze(request: AnalyzeRequest):
         
         context_str = "\n".join(context_parts) if context_parts else "No CVE context available (Pinecone not configured or empty)"
         
-        # Generate with Ollama
+        # Generate with Ollama (use small model for verification - it's now mostly heuristic-based anyway)
         # Enhanced prompt that considers user identity and problem description
         if all_matches:
             context_instruction = f"Context from CVE databases:\n{context_str}\n\n"
         else:
             context_instruction = "Note: CVE database context is not available. Base your decision on the user's description and role.\n\n"
         
-        prompt = f"""You are a security verification system. Your purpose is to:
-1. Verify the user is a real human (not a bot)
-2. Verify they have a legitimate security threat (not spam or fake)
+        prompt = f"""You are a security verification system. Your purpose is to determine if a user should be VERIFIED or NON-VERIFIED.
 
-Analyze the user's identity and problem description to determine if they should be verified or non-verified.
+VERIFICATION RULES (be lenient - default to verified if criteria are met):
+- VERIFY if: User has a REAL security threat AND a professional role in security/biotech/IT/research field
+- VERIFY if: User has a legitimate security concern with specific details, even if role is generic
+- NON-VERIFY if: User is a student OR has a role clearly outside security/biotech field (e.g., "teacher", "artist", "retail worker") AND the threat is obviously not important or vague
+- NON-VERIFY if: Threat is clearly spam, test input, or not a real security concern
 
-Consider:
-- Is this a real human? (Check for bot-like patterns, spam indicators)
-- Is this a legitimate security threat? (Check for real security concerns vs generic spam)
-- User's role and organization credibility
-- Problem description severity and legitimacy
-- Whether the issue matches known security patterns from the context (if available)
+Key Principles:
+1. If someone has a real threat AND a real professional role title (security, biotech, IT, research, lab manager, etc.), they should be VERIFIED
+2. Students or non-field roles with vague/unimportant threats should be NON-VERIFIED
+3. Be lenient - when in doubt, verify if there's a legitimate security concern
+4. Only reject if clearly spam, test input, or student/non-field role with trivial concern
 
 {context_instruction}User Query (includes identity and problem):
 {request.text}
@@ -220,12 +221,13 @@ Consider:
 Return only valid JSON with:
 - decision: either "verified" or "non_verified"
 - score_bin: a range like "0.5-0.7" representing confidence
-- reason_codes: an array of short reason strings explaining the decision (e.g., "human_verified", "legitimate_threat", "bot_detected", "spam_detected")
+- reason_codes: an array of short reason strings explaining the decision (e.g., "real_threat_and_professional_role", "student_with_vague_threat", "legitimate_security_concern", "spam_detected")
 
 Return only valid JSON, no other text. Example format:
-{{"decision": "verified", "score_bin": "0.75-0.85", "reason_codes": ["human_verified", "legitimate_security_concern", "credible_role"]}}"""
+{{"decision": "verified", "score_bin": "0.75-0.85", "reason_codes": ["real_threat_and_professional_role", "legitimate_security_concern"]}}"""
         
-        gen_response = generate(prompt)
+        # Use small model for verification (now mostly heuristic-based, AI is backup)
+        gen_response = generate(prompt, use_large_model=False)
         response_text = gen_response.get("response", "")
         
         # Try to parse JSON from response
@@ -294,80 +296,269 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    """Chat endpoint for user questions and advice"""
+    """Chat endpoint for user questions and advice - OPTIMIZED FOR SPEED"""
     try:
-        # For non-verified users, provide limited guidance
-        if request.limit_features:
-            prompt = f"""You are a helpful security advisor for a cyberbiosecurity platform. The user is a non-verified user with limited access.
-
-Provide helpful but general guidance about:
-- How to use the platform
-- General security best practices
-- What features are available after verification
-
-Keep responses concise and helpful. Do not provide specific threat analysis or detailed security recommendations - those require verified access.
-
-User question: {request.message}
-
-Provide a helpful, friendly response:"""
-        else:
-            # For verified users, provide full assistance
-            query_embedding = get_embedding(request.message)
-            
-            # Try to get relevant context from Pinecone
-            context_parts = []
-            try:
-                index = get_index()
-                namespaces = ["nvd", "cisa_kev"]
-                
-                for ns in namespaces:
-                    try:
-                        results = index.query(
-                            vector=query_embedding,
-                            top_k=3,
-                            include_metadata=True,
-                            namespace=ns
-                        )
-                        for match in results.matches:
-                            metadata = match.metadata or {}
-                            chunk = metadata.get("chunk", "")
-                            if chunk:
-                                context_parts.append(f"- {chunk[:200]}...")
-                    except:
-                        continue
-            except:
-                pass
-            
-            context_str = "\n".join(context_parts) if context_parts else "No specific CVE context available."
-            
-            if request.issue_id:
-                # Chat about a specific issue
-                prompt = f"""You are a security expert helping a verified user discuss a specific security issue.
-
-Context from CVE database (if relevant):
-{context_str}
-
-User is asking about issue ID: {request.issue_id}
-User question: {request.message}
-
-Provide detailed, actionable security advice based on the issue and available threat intelligence:"""
-            else:
-                # General chat
-                prompt = f"""You are a security expert helping a verified user with cyberbiosecurity questions.
-
-Context from CVE database (if relevant):
-{context_str}
-
-User question: {request.message}
-
-Provide detailed, actionable security advice:"""
+        # Template responses for common questions (INSTANT, no AI needed)
+        message_lower = request.message.lower().strip()
+        common_responses = {
+            "hello": "Hello! I'm your AI security advisor. How can I help you today?",
+            "hi": "Hi! I'm here to help with your security questions. What would you like to know?",
+            "help": "I can help you with security best practices, threat analysis, and CVE information. What specific question do you have?",
+            "what can you do": "I can provide security advice, analyze threats, and help you understand CVEs. What would you like to know?",
+            "what is a cve": "A CVE (Common Vulnerabilities and Exposures) is a unique identifier for publicly known cybersecurity vulnerabilities. CVEs help security professionals track, share, and address security issues across systems.",
+            "what is cve": "A CVE (Common Vulnerabilities and Exposures) is a unique identifier for publicly known cybersecurity vulnerabilities. CVEs help security professionals track, share, and address security issues across systems.",
+            "cve meaning": "CVE stands for Common Vulnerabilities and Exposures. It's a system for identifying and cataloging cybersecurity vulnerabilities with unique identifiers like CVE-2024-1234.",
+            "thanks": "You're welcome! Feel free to ask if you need anything else.",
+            "thank you": "You're welcome! Happy to help.",
+        }
         
-        gen_response = generate(prompt)
-        response_text = gen_response.get("response", "I apologize, but I could not process your request.")
+        # Check for exact matches first (instant response)
+        if message_lower in common_responses:
+            return {
+                "response": common_responses[message_lower],
+                "context_used": False
+            }
+        
+        # Check for partial matches (common patterns) - also instant
+        if "what is" in message_lower and "cve" in message_lower:
+            return {
+                "response": "A CVE (Common Vulnerabilities and Exposures) is a unique identifier for publicly known cybersecurity vulnerabilities. CVEs help security professionals track, share, and address security issues across systems.",
+                "context_used": False
+            }
+        if "explain" in message_lower and "cve" in message_lower:
+            return {
+                "response": "CVEs are standardized identifiers for security vulnerabilities. Each CVE has a unique ID (like CVE-2024-1234) and includes details about the vulnerability, affected systems, and potential impact.",
+                "context_used": False
+            }
+        
+        # More template responses to skip Ollama entirely (INSTANT responses)
+        if "security" in message_lower and "best practice" in message_lower:
+            return {
+                "response": "Security best practices include: keeping software updated, using strong passwords, enabling multi-factor authentication, regular backups, and monitoring for suspicious activity. For specific threats, verified access provides detailed analysis.",
+                "context_used": False
+            }
+        if "how do i" in message_lower and "verify" in message_lower:
+            return {
+                "response": "To get verified access, submit a request through the portal with your name, role, and a description of your security concern. Verified users get access to detailed CVE analysis and threat intelligence.",
+                "context_used": False
+            }
+        if len(message_lower.split()) <= 3 and "?" in request.message:
+            # Very short questions - likely simple queries, skip Ollama
+            return {
+                "response": "I can help with security questions, CVE information, and threat analysis. Could you provide more details about what you'd like to know?",
+                "context_used": False
+            }
+        
+        # More template responses to skip Ollama entirely
+        if "security" in message_lower and "best practice" in message_lower:
+            return {
+                "response": "Security best practices include: keeping software updated, using strong passwords, enabling multi-factor authentication, regular backups, and monitoring for suspicious activity. For specific threats, verified access provides detailed analysis.",
+                "context_used": False
+            }
+        if "how do i" in message_lower and "verify" in message_lower:
+            return {
+                "response": "To get verified access, submit a request through the portal with your name, role, and a description of your security concern. Verified users get access to detailed CVE analysis and threat intelligence.",
+                "context_used": False
+            }
+        if len(message_lower.split()) <= 3 and "?" in request.message:
+            # Very short questions - likely simple queries
+            return {
+                "response": "I can help with security questions, CVE information, and threat analysis. Could you provide more details about what you'd like to know?",
+                "context_used": False
+            }
+        
+        # For non-verified users, provide limited guidance (use small, fast model, NO embeddings, NO Pinecone)
+        if request.limit_features:
+            # Skip AI entirely for very simple questions - use templates
+            simple_questions = {
+                "how do i": "I can help you understand how to use the platform. For verified access, submit a request through the portal. What specific feature are you interested in?",
+                "how to": "I can provide general guidance. For detailed security analysis and CVE information, you'll need verified access. What would you like to know?",
+                "what should i": "For general security questions, I recommend following best practices like keeping systems updated and using strong passwords. For specific threat analysis, verified access is required.",
+            }
+            
+            for pattern, response in simple_questions.items():
+                if pattern in message_lower:
+                    return {
+                        "response": response,
+                        "context_used": False
+                    }
+            
+            # Ultra-short prompt for speed - only if no template match
+            prompt = f"Q: {request.message[:150]}\n\nA (2 sentences max):"
+            # Use small model, no embeddings, no Pinecone, very short timeout
+            try:
+                gen_response = generate(prompt, use_large_model=False, use_cache=True)
+                response_text = gen_response.get("response", "I can help with general security guidance. What specific question do you have?")
+                # Extract just the answer part if model includes question
+                if "A:" in response_text:
+                    response_text = response_text.split("A:")[-1].strip()
+                return {
+                    "response": response_text[:250],  # Limit response length
+                    "context_used": False
+                }
+            except Exception as e:
+                # If Ollama fails, return helpful fallback
+                return {
+                    "response": "I can help with general security guidance. For detailed analysis, please request verified access. What specific question do you have?",
+                    "context_used": False
+                }
+        else:
+            # For verified users - ONLY use Pinecone/embeddings if issue_id is present (skip for general chat)
+            context_parts = []
+            context_str = "No specific CVE context available."
+            
+            # ONLY do expensive Pinecone lookup for issue-specific queries
+            if request.issue_id:
+                try:
+                    query_embedding = get_embedding(request.message[:200])  # Limit embedding size
+                    index = get_index()
+                    namespaces = ["nvd", "cisa_kev"]
+                    
+                    for ns in namespaces:
+                        try:
+                            results = index.query(
+                                vector=query_embedding,
+                                top_k=2,  # Reduced from 3
+                                include_metadata=True,
+                                namespace=ns
+                            )
+                            for match in results.matches:
+                                metadata = match.metadata or {}
+                                chunk = metadata.get("chunk", "")
+                                if chunk:
+                                    context_parts.append(f"- {chunk[:150]}...")  # Shorter chunks
+                        except:
+                            continue
+                    
+                    if context_parts:
+                        context_str = "\n".join(context_parts[:2])  # Max 2 chunks
+                except:
+                    pass  # Skip Pinecone if it fails
+            
+            # Ultra-short prompts for speed
+            if request.issue_id:
+                prompt = f"Security expert. Issue: {request.issue_id}\nContext: {context_str}\nQuestion: {request.message[:200]}\n\nBrief advice (3-4 sentences):"
+            else:
+                # General chat - NO embeddings, NO Pinecone for speed
+                # Ultra-minimal prompt
+                prompt = f"Q: {request.message[:150]}\n\nA (2-3 sentences):"
+        
+        # ALWAYS use small model for speed (never use large model)
+        try:
+            gen_response = generate(prompt, use_large_model=False, use_cache=True)
+            response_text = gen_response.get("response", "I can help with security questions. What would you like to know?")
+            # Extract answer if model includes question
+            if "A:" in response_text:
+                response_text = response_text.split("A:")[-1].strip()
+            elif "Answer:" in response_text:
+                response_text = response_text.split("Answer:")[-1].strip()
+        except Exception as e:
+            # Fallback if Ollama fails
+            response_text = "I can help with security questions. Please try rephrasing your question or try again in a moment."
         
         return {
-            "response": response_text,
-            "context_used": len(context_parts) > 0 if 'context_parts' in locals() else False
+            "response": response_text[:350],  # Limit response length for speed
+            "context_used": len(context_parts) > 0
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class AnalyzeThreatRequest(BaseModel):
+    text: str
+    context: Optional[str] = None
+    top_k: Optional[int] = 5
+
+@app.post("/analyze-threat")
+async def analyze_threat(request: AnalyzeThreatRequest):
+    """Analyze threat endpoint for CVE analysis and categorization"""
+    try:
+        # Use the existing analyze endpoint logic
+        query_embedding = get_embedding(request.text)
+        
+        # Try to get relevant context from Pinecone
+        all_matches = []
+        try:
+            index = get_index()
+            namespaces = ["nvd", "cisa_kev"]
+            
+            for ns in namespaces:
+                try:
+                    results = index.query(
+                        vector=query_embedding,
+                        top_k=request.top_k or 5,
+                        include_metadata=True,
+                        namespace=ns
+                    )
+                    all_matches.extend(results.matches)
+                except:
+                    continue
+        except:
+            pass
+        
+        # Sort by score and take top_k
+        all_matches.sort(key=lambda x: x.score, reverse=True)
+        results_matches = all_matches[:request.top_k or 5]
+        
+        # Calculate average similarity score
+        avg_score = sum(m.score for m in results_matches) / len(results_matches) if results_matches else 0.0
+        
+        # Determine if it's a real threat based on similarity and content
+        is_real_threat = avg_score > 0.3 or len(request.text) > 50
+        
+        # Flag suspicious content
+        suspicious_keywords = ['test', 'fake', 'spam', 'lol', 'haha', 'asdf', 'qwerty']
+        text_lower = request.text.lower()
+        is_flagged = any(keyword in text_lower for keyword in suspicious_keywords) or len(request.text) < 20
+        
+        # Calculate confidence based on similarity score
+        confidence = min(avg_score * 1.2, 1.0) if results_matches else 0.5
+        
+        # Extract flags/reason codes
+        flags = []
+        if not is_real_threat:
+            flags.append("low_similarity")
+        if is_flagged:
+            flags.append("suspicious_content")
+        if avg_score > 0.7:
+            flags.append("high_similarity")
+        if len(results_matches) == 0:
+            flags.append("no_cve_matches")
+        
+        # Generate analysis text using LLM - OPTIMIZED FOR SPEED
+        context_str = "\n".join([f"- {m.metadata.get('chunk', '')[:100]}..." for m in results_matches[:2]]) if results_matches else "No similar CVEs."
+        
+        # Ultra-short prompt for speed
+        prompt = f"Security threat: {request.text[:150]}\nContext: {context_str}\n\nBrief analysis (1-2 sentences):"
+        
+        try:
+            # Use small model, aggressive caching
+            gen_response = generate(prompt, use_large_model=False, use_cache=True)
+            analysis_text = gen_response.get("response", "Threat analyzed.")[:200]  # Limit length
+        except:
+            # Fallback to simple analysis
+            analysis_text = f"{'High' if avg_score > 0.5 else 'Low'} similarity to known CVEs (score: {avg_score:.2f})."
+        
+        # Calculate risk score (0-1 scale)
+        risk_score = min(avg_score * 1.1, 1.0) if results_matches else 0.5
+        if is_flagged:
+            risk_score *= 0.5  # Reduce risk score for flagged content
+        
+        return {
+            "is_real_threat": is_real_threat,
+            "is_flagged": is_flagged,
+            "confidence": confidence,
+            "flags": flags,
+            "analysis": analysis_text,
+            "risk_score": risk_score,
+            "similar_cves": [
+                {
+                    "id": m.metadata.get("doc_id", "unknown"),
+                    "score": m.score,
+                    "description": m.metadata.get("chunk", "")[:200] + "..." if len(m.metadata.get("chunk", "")) > 200 else m.metadata.get("chunk", "")
+                }
+                for m in results_matches[:5]
+            ],
+            "score_bin": f"{avg_score:.2f}-{min(avg_score + 0.1, 1.0):.2f}" if results_matches else "0.0-0.1"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

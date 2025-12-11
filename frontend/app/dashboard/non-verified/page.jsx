@@ -504,6 +504,10 @@ function AIChatAdvisor() {
     setInput('')
     setLoading(true)
 
+    // Add timeout to prevent hanging - shorter timeout for faster feedback
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout - Docker + Ollama may need more time for first request
+
     try {
       const response = await fetch(`${API_URL}/ai-rag/chat`, {
         method: 'POST',
@@ -515,7 +519,10 @@ function AIChatAdvisor() {
           context: 'non_verified_advice',
           limit_features: true
         }),
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -530,9 +537,18 @@ function AIChatAdvisor() {
       }
       setMessages(prev => [...prev, assistantMessage])
     } catch (err) {
+      clearTimeout(timeoutId)
+      let errorMsg = 'I apologize, but I encountered an error. Please try again later.'
+      if (err.name === 'AbortError') {
+        errorMsg = 'Request timed out after 45 seconds. The AI service may be slow. Please try again.'
+      } else if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+        errorMsg = 'Network error: Unable to connect to the AI service. Please check if the service is running.'
+      } else if (err instanceof Error) {
+        errorMsg = `Error: ${err.message}`
+      }
       const errorMessage = {
         role: 'assistant',
-        content: 'I apologize, but I encountered an error. Please try again later.',
+        content: errorMsg,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
@@ -878,6 +894,10 @@ export default function NonVerifiedDashboard() {
     setLoadingRecommendations(true)
     setAiRecommendations(null)
     
+    // Add timeout for faster feedback
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout - Docker + Ollama may need more time for first request
+    
     try {
       const response = await fetch(`${API_URL}/ai-rag/chat`, {
         method: 'POST',
@@ -889,7 +909,10 @@ export default function NonVerifiedDashboard() {
           context: 'non_verified_advice',
           limit_features: true
         }),
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         throw new Error('Failed to get recommendations')
@@ -898,15 +921,14 @@ export default function NonVerifiedDashboard() {
       const data = await response.json()
       setAiRecommendations(data.response || 'No recommendations available.')
     } catch (err) {
+      clearTimeout(timeoutId)
       let errorMsg = 'Error: Could not get recommendations. Please try again.'
-      if (err instanceof Error) {
-        if (err.name === 'AbortError') {
-          errorMsg = 'Request timed out. Please try again.'
-        } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-          errorMsg = 'Network error: Unable to connect to the server. Please check your connection.'
-        } else {
-          errorMsg = `Error: ${err.message}`
-        }
+      if (err.name === 'AbortError') {
+        errorMsg = 'Request timed out after 45 seconds. Please try again.'
+      } else if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+        errorMsg = 'Network error: Unable to connect to the server. Please check your connection.'
+      } else if (err instanceof Error) {
+        errorMsg = `Error: ${err.message}`
       }
       setAiRecommendations(errorMsg)
     } finally {
@@ -934,7 +956,7 @@ export default function NonVerifiedDashboard() {
       // Simplified, more direct prompt
       const conversationPrompt = userMessage
 
-      timeoutId = setTimeout(() => controller.abort(), 120000) // 120 second timeout (AI service may be slow, especially on first request)
+      timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout - Docker + Ollama may need more time for first request
 
       const response = await fetch(`${API_URL}/ai-rag/chat`, {
         method: 'POST',

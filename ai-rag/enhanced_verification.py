@@ -71,10 +71,24 @@ RISK_INDICATORS = [
     "win lottery", "nigerian prince", "click here", "free money"
 ]
 
+# Student/non-field role indicators (should be non-verified if threat is vague)
+STUDENT_INDICATORS = [
+    "student", "undergraduate", "graduate student", "phd student",
+    "intern", "internship", "trainee", "apprentice"
+]
+
+# Non-field roles (roles clearly outside security/biotech/IT)
+NON_FIELD_ROLES = [
+    "teacher", "professor", "educator", "artist", "musician", "writer",
+    "retail", "cashier", "waiter", "waitress", "chef", "cook",
+    "driver", "delivery", "sales", "marketing", "accountant", "lawyer",
+    "doctor", "nurse", "dentist", "veterinarian", "therapist", "counselor"
+]
+
 def analyze_role_credibility(role: str) -> float:
-    """Analyze role credibility score (0.0-1.0)"""
+    """Analyze role credibility score (0.0-1.0) - be lenient"""
     if not role:
-        return 0.3
+        return 0.4  # More lenient default
     
     role_lower = role.lower()
     
@@ -83,20 +97,34 @@ def analyze_role_credibility(role: str) -> float:
         if credible_role in role_lower:
             return 0.9
     
+    # Check for student indicators (lower credibility)
+    if any(indicator in role_lower for indicator in STUDENT_INDICATORS):
+        return 0.3
+    
+    # Check for non-field roles (lower credibility)
+    if any(non_field in role_lower for non_field in NON_FIELD_ROLES):
+        return 0.2
+    
     # Check for organizational indicators
-    org_indicators = ["at ", "inc", "corp", "labs", "research", "university", "hospital"]
+    org_indicators = ["at ", "inc", "corp", "labs", "research", "university", "hospital", "institute", "company"]
     has_org = any(indicator in role_lower for indicator in org_indicators)
     
-    # Check for professional titles
-    professional_titles = ["director", "manager", "lead", "senior", "chief", "head"]
+    # Check for professional titles (be more lenient - accept more titles)
+    professional_titles = ["director", "manager", "lead", "senior", "chief", "head", "engineer", "analyst", "specialist", "coordinator", "administrator"]
     has_title = any(title in role_lower for title in professional_titles)
     
+    # Check for IT/tech roles (be lenient)
+    tech_indicators = ["it", "tech", "software", "developer", "programmer", "system", "network", "database"]
+    has_tech = any(indicator in role_lower for indicator in tech_indicators)
+    
     if has_org and has_title:
-        return 0.7
-    elif has_org or has_title:
+        return 0.8  # Higher score
+    elif has_org or has_title or has_tech:
+        return 0.6  # Higher score
+    elif has_org:
         return 0.5
     else:
-        return 0.3
+        return 0.4  # More lenient default
 
 def analyze_problem_severity(problem: str) -> float:
     """Analyze problem severity score (0.0-1.0)"""
@@ -348,8 +376,29 @@ def enhanced_verification_analysis(
     # Ensure confidence is in valid range
     confidence = max(0.0, min(1.0, confidence))
     
-    # Determine decision threshold
-    decision = "verified" if confidence >= 0.65 else "non_verified"
+    # Determine decision threshold - be more lenient
+    # If they have a real threat and a professional role, verify them
+    has_real_threat = factors.problem_severity >= 0.5 or factors.problem_specificity >= 0.5
+    has_professional_role = factors.role_credibility >= 0.5
+    
+    # Check if student or non-field role with vague threat
+    role_lower = role.lower() if role else ""
+    is_student = any(indicator in role_lower for indicator in STUDENT_INDICATORS) if role_lower else False
+    is_non_field = any(non_field in role_lower for non_field in NON_FIELD_ROLES) if role_lower else False
+    vague_threat = factors.problem_severity < 0.4 and factors.problem_specificity < 0.4
+    
+    # Non-verify only if: student/non-field role AND vague/unimportant threat
+    if (is_student or is_non_field) and vague_threat:
+        decision = "non_verified"
+    # Verify if: real threat AND professional role
+    elif has_real_threat and has_professional_role:
+        decision = "verified"
+    # Verify if: real threat (even without strong role)
+    elif has_real_threat and confidence >= 0.5:
+        decision = "verified"
+    # Default threshold lowered
+    else:
+        decision = "verified" if confidence >= 0.55 else "non_verified"
     
     # Generate score bin
     score_low = max(0.0, confidence - 0.05)

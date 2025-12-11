@@ -35,6 +35,8 @@ export default function Portal() {
   const [currentStep, setCurrentStep] = useState('api_key_check')
   const messagesEndRef = useRef(null)
   const [cookiesAccepted, setCookiesAccepted] = useState(false)
+  const [analyzingTime, setAnalyzingTime] = useState(0) // Time elapsed during analysis
+  const analyzingTimeRef = useRef(null) // Ref to store interval ID
 
   // Check for cookie consent on mount
   useEffect(() => {
@@ -131,15 +133,37 @@ export default function Portal() {
       return { valid: false, reason: 'too_short' }
     }
 
-    // Check for generic/low-value responses
+    // For names, be very lenient - only reject obvious single-word spam
+    if (fieldType === 'name') {
+      const lowerInput = trimmed.toLowerCase()
+      // Only reject if it's exactly one of these obvious spam words (no partial matches)
+      const obviousSpam = ['test', 'user', 'admin', 'asdf', 'qwerty', '123', 'abc', 'name', 'me', 'hi', 'hello']
+      if (obviousSpam.includes(lowerInput)) {
+        return { valid: false, reason: 'generic' }
+      }
+      // If it has spaces or multiple words, it's likely a real name - accept it
+      if (trimmed.includes(' ') || trimmed.length >= 4) {
+        return { valid: true }
+      }
+      // Single word names of 3+ characters are acceptable
+      return { valid: true }
+    }
+
+    // Check for generic/low-value responses for role and problem
     const genericResponses = {
-      name: ['test', 'user', 'admin', 'asdf', 'qwerty', '123', 'abc', 'name', 'me', 'hi', 'hello'],
       role: ['test', 'user', 'admin', 'asdf', 'qwerty', '123', 'abc', 'role', 'job', 'work', 'employee'],
-      problem: ['test', 'asdf', 'qwerty', '123', 'abc', 'nothing', 'n/a', 'na', 'none', 'no', 'yes', 'ok', 'hi', 'hello', 'lol', 'haha']
+      problem: ['test', 'asdf', 'qwerty', '123', 'abc', 'nothing', 'n/a', 'na', 'none', 'lol', 'haha']
     }
 
     const lowerInput = trimmed.toLowerCase()
-    if (genericResponses[fieldType]?.some(generic => lowerInput === generic || lowerInput.includes(generic))) {
+    // Check for exact matches or whole word matches only (not substring matches)
+    if (genericResponses[fieldType]?.some(generic => {
+      // Exact match
+      if (lowerInput === generic) return true
+      // Whole word match (word boundary check)
+      const wordBoundaryRegex = new RegExp(`\\b${generic}\\b`, 'i')
+      return wordBoundaryRegex.test(lowerInput)
+    })) {
       return { valid: false, reason: 'generic' }
     }
 
@@ -356,9 +380,23 @@ export default function Portal() {
 
   const handleSubmit = async (submissionInfo) => {
     setLoading(true)
+    setAnalyzingTime(0) // Reset timer
+
+    // Start countdown timer
+    analyzingTimeRef.current = setInterval(() => {
+      setAnalyzingTime(prev => {
+        const newTime = prev + 1
+        // Update the analyzing message with time
+        return newTime
+      })
+    }, 1000) // Update every second
 
     // Use provided info or fall back to state
     const infoToSubmit = submissionInfo || userInfo
+
+    // Add timeout to prevent hanging - verification is instant but DB/ETL operations may take a moment
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout (verification is instant, but DB writes take time)
 
     try {
       const response = await fetch(`${API_URL}/portal/submit`, {
@@ -372,7 +410,16 @@ export default function Portal() {
           problem: infoToSubmit.problem,
           apiKey: apiKey,
         }),
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
+      
+      // Stop the countdown timer when response is received
+      if (analyzingTimeRef.current) {
+        clearInterval(analyzingTimeRef.current)
+        analyzingTimeRef.current = null
+      }
 
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}`
@@ -387,6 +434,12 @@ export default function Portal() {
       }
 
       const data = await response.json()
+      
+      // Stop the countdown timer
+      if (analyzingTimeRef.current) {
+        clearInterval(analyzingTimeRef.current)
+        analyzingTimeRef.current = null
+      }
       
       // Store user_id from backend response - this links portal and dashboard
       // Backend returns 'UserId' (capital U) in JSON, but we check all formats
@@ -444,18 +497,25 @@ export default function Portal() {
       }
 
     } catch (err) {
-      let errorMessage = 'Unknown error'
-      if (err instanceof Error) {
-        errorMessage = err.message
-        // Try to extract error from response if available
-        if (err.message.includes('Failed to fetch')) {
-          errorMessage = 'Unable to connect to the server. Please check your connection and try again.'
-        }
+      clearTimeout(timeoutId)
+      let errorMessage = 'Failed to submit your information. Please try again.'
+      if (err.name === 'AbortError') {
+        errorMessage = 'Request timed out after 30 seconds. Please try again.'
+      } else if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+        errorMessage = 'Network error: Unable to connect to the server. Please check your connection and try again.'
+      } else if (err instanceof Error) {
+        errorMessage = `Error: ${err.message}`
       }
-      addMessage('assistant', `I encountered an error processing your request: ${errorMessage}. Please try again or contact support.`)
+      addMessage('assistant', `⚠️ ${errorMessage}`)
       console.error('Portal submission error:', err)
     } finally {
+      // Stop the countdown timer
+      if (analyzingTimeRef.current) {
+        clearInterval(analyzingTimeRef.current)
+        analyzingTimeRef.current = null
+      }
       setLoading(false)
+      setAnalyzingTime(0)
     }
   }
 
@@ -1061,7 +1121,7 @@ export default function Portal() {
                 fontWeight: '500'
               }}>
                 <span style={{ display: 'inline-block', animation: 'pulse 1.5s ease-in-out infinite' }}>
-                  Analyzing...
+                  Analyzing... ({analyzingTime}s / ~30s max)
                 </span>
               </div>
             </div>

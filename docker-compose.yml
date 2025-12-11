@@ -102,11 +102,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 2G
+          cpus: '1.0'  # Reduced - AI-RAG is just a proxy, doesn't need much
+          memory: 1G  # Reduced - AI-RAG is lightweight
         reservations:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '0.25'  # Minimal reservation
+          memory: 256M  # Minimal reservation
 
   etl-nv:
     build:
@@ -152,14 +152,31 @@ services:
       - "11434:11434"
     volumes:
       - ollama_cache:/root/.ollama
+    # Docker performance optimizations
+    shm_size: '2gb'  # Increase shared memory for better performance
+    network_mode: bridge  # Use bridge network for better performance
+    ulimits:
+      memlock: -1  # Unlimited memory locking (helps with model loading)
+      nofile:
+        soft: 65536  # Increase file descriptor limit
+        hard: 65536
+    environment:
+      # Performance optimizations - MAXIMUM resources for speed (Ollama is critical)
+      - OLLAMA_NUM_PARALLEL=1  # Process one request at a time (prevents overload)
+      - OLLAMA_MAX_LOADED=3  # Keep 3 models loaded (generation + embedding + backup) - matches docs format
+      - OLLAMA_KEEP_ALIVE=-1  # Keep models loaded in memory indefinitely (prevents reload delays)
+      - OLLAMA_NUM_THREADS=8  # Use 8 threads to match 8 CPU limit (maximum parallelization) - matches docs format
+      - OLLAMA_CONTEXT_SIZE=2048  # Smaller context window = faster generation (default is 4096)
+      - OLLAMA_HOST=0.0.0.0  # Listen on all interfaces
+      - OLLAMA_CUDA=1  # Enable GPU acceleration if available (will fallback to CPU if no GPU)
     deploy:
       resources:
         limits:
-          cpus: '4.0'
-          memory: 8G
+          cpus: '8.0'  # MAXIMUM CPU - Ollama is the most critical service, needs all available CPU
+          memory: 12G  # MAXIMUM MEMORY - Keep models loaded and allow fast inference without swapping
         reservations:
-          cpus: '1.0'
-          memory: 2G
+          cpus: '2.0'  # High CPU reservation to ensure Ollama always has resources
+          memory: 4G  # High memory reservation to keep models loaded
     # Optional: comment out if using local Ollama desktop app
 
   cve-ingestor:
