@@ -892,16 +892,66 @@ function Show-StartServicesStep {
     $originalLocation = Get-Location
     Set-Location $scriptDir
     
+    # Check Docker is fully ready (not just docker ps works)
+    $statusText.Text = "Verifying Docker is fully ready..."
+    $form.Refresh()
+    [System.Windows.Forms.Application]::DoEvents()
+    
+    $dockerReady = $false
+    $readyAttempts = 0
+    while (-not $dockerReady -and $readyAttempts -lt 5) {
+        try {
+            $testOutput = docker info 2>&1
+            if ($LASTEXITCODE -eq 0 -and $testOutput -match "Server Version") {
+                $dockerReady = $true
+            }
+        } catch {
+            # Continue checking
+        }
+        if (-not $dockerReady) {
+            $readyAttempts++
+            Start-Sleep -Seconds 2
+            $statusText.Text = "Waiting for Docker to be fully ready... ($readyAttempts/5)"
+            $form.Refresh()
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+    }
+    
+    if (-not $dockerReady) {
+        $statusText.Text = "Warning: Docker may not be fully ready. Continuing anyway..."
+        $form.Refresh()
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Seconds 2
+    }
+    
     # Run docker compose command - use cmd.exe for better compatibility
     try {
-        $statusText.Text = "Executing: docker compose up --build -d"
+        $statusText.Text = "Building containers (this may take 5-15 minutes on first run)..."
+        
+        # Show status text box for build output
+        $statusTextBox.Visible = $true
+        $componentListContainer.Visible = $false
+        $form.Refresh()
+        [System.Windows.Forms.Application]::DoEvents()
+        
+        # Verify we're in the right directory
+        if (-not (Test-Path (Join-Path $scriptDir "docker-compose.yml"))) {
+            $statusTextBox.AppendText("[ERROR] docker-compose.yml not found in: $scriptDir`r`n")
+            $statusTextBox.AppendText("Current directory contents:`r`n")
+            Get-ChildItem $scriptDir | ForEach-Object { $statusTextBox.AppendText("  - $($_.Name)`r`n") }
+            $form.Refresh()
+            throw "docker-compose.yml not found"
+        }
+        
+        $statusTextBox.AppendText("Found docker-compose.yml`r`n")
+        $statusTextBox.AppendText("Starting build process...`r`n`r`n")
         $form.Refresh()
         [System.Windows.Forms.Application]::DoEvents()
         
         # Use cmd.exe to run docker compose (handles output better)
         $processInfo = New-Object System.Diagnostics.ProcessStartInfo
         $processInfo.FileName = "cmd.exe"
-        $processInfo.Arguments = "/c docker compose up --build -d 2>&1"
+        $processInfo.Arguments = "/c `"cd /d `"$scriptDir`" && docker compose up --build -d 2>&1`""
         $processInfo.WorkingDirectory = $scriptDir
         $processInfo.UseShellExecute = $false
         $processInfo.RedirectStandardOutput = $true
@@ -911,12 +961,31 @@ function Show-StartServicesStep {
         $process = New-Object System.Diagnostics.Process
         $process.StartInfo = $processInfo
         
-        # Start process
-        $process.Start() | Out-Null
+        # Start process and verify it started
+        $statusTextBox.AppendText("Launching Docker Compose...`r`n")
+        $form.Refresh()
+        [System.Windows.Forms.Application]::DoEvents()
+        
+        try {
+            $started = $process.Start()
+            if (-not $started) {
+                throw "Failed to start process"
+            }
+            $statusTextBox.AppendText("[OK] Process started (PID: $($process.Id))`r`n")
+            $statusTextBox.AppendText("Waiting for output...`r`n`r`n")
+            $form.Refresh()
+            [System.Windows.Forms.Application]::DoEvents()
+        } catch {
+            $statusTextBox.AppendText("[FAIL] Failed to start process: $($_.Exception.Message)`r`n")
+            $form.Refresh()
+            throw "Process start failed: $($_.Exception.Message)"
+        }
         
         # Read output asynchronously
         $outputBuilder = New-Object System.Text.StringBuilder
         $errorBuilder = New-Object System.Text.StringBuilder
+        $lastUpdate = Get-Date
+        $lastOutputLength = 0
         
         $outputEvent = Register-ObjectEvent -InputObject $process -EventName OutputDataReceived -Action {
             if ($EventArgs.Data) {
@@ -933,13 +1002,54 @@ function Show-StartServicesStep {
         $process.BeginOutputReadLine()
         $process.BeginErrorReadLine()
         
-        # Wait for process with UI updates
+        # Wait for process with UI updates and show progress
         $progressBar.Value = 50
+        $timeoutSeconds = 0
+        $maxTimeout = 1200  # 20 minutes max
+        
         while (-not $process.HasExited) {
             [System.Windows.Forms.Application]::DoEvents()
-            Start-Sleep -Milliseconds 200
-            if ($progressBar.Value -lt 70) {
-                $progressBar.Value += 1
+            Start-Sleep -Milliseconds 500
+            $timeoutSeconds += 0.5
+            
+            # Update progress bar (slowly, to show it's working)
+            if ($progressBar.Value -lt 85) {
+                $progressBar.Value = [Math]::Min(85, 50 + ($timeoutSeconds / $maxTimeout * 35))
+            }
+            
+            # Update status and output display every 2 seconds (more frequent updates)
+            if ((Get-Date) - $lastUpdate -gt [TimeSpan]::FromSeconds(2)) {
+                $minutes = [Math]::Floor($timeoutSeconds / 60)
+                $seconds = [Math]::Floor($timeoutSeconds % 60)
+                $statusText.Text = "Building containers... ($minutes`m $seconds`s) - This is normal on first run"
+                
+                # Update output display if new content available
+                $currentOutput = $outputBuilder.ToString()
+                if ($currentOutput.Length -gt $lastOutputLength) {
+                    # Append new content
+                    $newContent = $currentOutput.Substring($lastOutputLength)
+                    $statusTextBox.AppendText($newContent)
+                    $statusTextBox.SelectionStart = $statusTextBox.Text.Length
+                    $statusTextBox.ScrollToCaret()
+                    $lastOutputLength = $currentOutput.Length
+                } elseif ($timeoutSeconds -gt 10 -and $currentOutput.Length -eq 0) {
+                    # No output after 10 seconds - show warning
+                    if ($timeoutSeconds % 10 -lt 2) {
+                        $statusTextBox.AppendText("[INFO] Still waiting for Docker Compose output... (this may take a moment)`r`n")
+                        $statusTextBox.SelectionStart = $statusTextBox.Text.Length
+                        $statusTextBox.ScrollToCaret()
+                    }
+                }
+                
+                $form.Refresh()
+                [System.Windows.Forms.Application]::DoEvents()
+                $lastUpdate = Get-Date
+            }
+            
+            # Check for timeout
+            if ($timeoutSeconds -gt $maxTimeout) {
+                $process.Kill()
+                throw "Build timeout after 20 minutes"
             }
         }
         
@@ -950,17 +1060,54 @@ function Show-StartServicesStep {
         Unregister-Event -SourceIdentifier $outputEvent.Name -ErrorAction SilentlyContinue
         Unregister-Event -SourceIdentifier $errorEvent.Name -ErrorAction SilentlyContinue
         
+        # Get final output
         $output = $outputBuilder.ToString()
         $errorOutput = $errorBuilder.ToString()
         
+        # Show final output
+        $statusTextBox.Text = $output
+        if ($errorOutput) {
+            $statusTextBox.AppendText("`r`n--- ERRORS ---`r`n")
+            $statusTextBox.AppendText($errorOutput)
+        }
+        $statusTextBox.SelectionStart = $statusTextBox.Text.Length
+        $statusTextBox.ScrollToCaret()
+        $form.Refresh()
+        [System.Windows.Forms.Application]::DoEvents()
+        
         # Filter out warnings - they're not actual errors
-        $realErrors = ($errorOutput -split "`n" | Where-Object { $_ -notmatch "level=warning" -and $_ -notmatch "variable is not set" -and $_ -notmatch "Defaulting to a blank" -and $_.Trim() -ne "" }) -join "`n"
+        $realErrors = ""
+        if ($errorOutput) {
+            $realErrors = ($errorOutput -split "`n" | Where-Object { 
+                $_ -notmatch "level=warning" -and 
+                $_ -notmatch "variable is not set" -and 
+                $_ -notmatch "Defaulting to a blank" -and 
+                $_ -notmatch "WARN" -and
+                $_ -notmatch "deprecated" -and
+                $_.Trim() -ne "" 
+            }) -join "`n"
+        }
+        
+        # Check output for success indicators
+        $hasSuccessIndicators = $output -match "Creating|Starting|Started|Up|done|Successfully|built"
         
         # If only warnings, treat as success (Docker Compose warnings don't mean failure)
         if ($realErrors -eq "" -and $exitCode -ne 0) {
-            # Check if output contains success indicators
-            if ($output -match "Creating|Starting|Started|Up|done" -or $output -eq "") {
+            if ($hasSuccessIndicators) {
                 $exitCode = 0
+            }
+        }
+        
+        # If exit code is 0 but no success indicators, check if containers are actually running
+        if ($exitCode -eq 0 -and -not $hasSuccessIndicators) {
+            Start-Sleep -Seconds 3
+            try {
+                $runningContainers = docker compose ps --format "{{.Name}}" 2>&1
+                if ($LASTEXITCODE -eq 0 -and $runningContainers) {
+                    $exitCode = 0  # Containers are running, treat as success
+                }
+            } catch {
+                # Ignore check errors
             }
         }
         
@@ -979,11 +1126,12 @@ function Show-StartServicesStep {
     
     if ($exitCode -eq 0 -or ($realErrors -eq "" -and $output -ne "")) {
         $progressBar.Value = 75
-        $statusText.Text = "Services started. Verifying..."
+        $statusText.Text = "Build completed. Verifying services..."
+        $statusTextBox.AppendText("`r`n`r`n=== Verifying services ===`r`n")
         $form.Refresh()
         [System.Windows.Forms.Application]::DoEvents()
         
-        Start-Sleep -Seconds 5  # Give services time to start
+        Start-Sleep -Seconds 10  # Give services more time to start (increased from 5)
         
         # Change to project directory for checking
         $originalLocation = Get-Location
@@ -1086,23 +1234,57 @@ function Show-StartServicesStep {
             $backButton.Enabled = $true
         }
     } else {
-        # Failed to start
+        # Failed to start - show detailed error
+        $statusTextBox.Visible = $true
+        $componentListContainer.Visible = $false
+        $statusTextBox.AppendText("`r`n`r`n=== BUILD FAILED ===`r`n")
+        $statusTextBox.AppendText("Exit code: $exitCode`r`n")
+        if ($realErrors) {
+            $statusTextBox.AppendText("Errors:`r`n$realErrors`r`n")
+        }
+        $statusTextBox.SelectionStart = $statusTextBox.Text.Length
+        $statusTextBox.ScrollToCaret()
+        
         foreach ($service in $services) {
             Update-Component $service "Failed"
         }
-        $statusText.Text = "Failed to start services. Exit code: $exitCode"
+        
+        $errorSummary = "Build failed. Exit code: $exitCode"
         if ($realErrors -and $realErrors.Trim() -ne "") {
-            $errorMsg = $realErrors.Substring(0, [Math]::Min(80, $realErrors.Length))
-            $statusText.Text += " Error: $errorMsg"
+            $errorLines = ($realErrors -split "`n" | Where-Object { $_.Trim() -ne "" })
+            if ($errorLines.Count -gt 0) {
+                $firstError = $errorLines[0].Substring(0, [Math]::Min(100, $errorLines[0].Length))
+                $errorSummary += "`r`nFirst error: $firstError"
+            }
         } else {
-            $statusText.Text += " Check Docker logs or try running as administrator."
+            $errorSummary += "`r`nCheck the output above for details. Common issues:`r`n- Docker Desktop not fully ready`r`n- Insufficient memory/CPU allocated to Docker`r`n- Network issues pulling images`r`n- Port conflicts"
         }
+        
+        $statusText.Text = $errorSummary
         $progressBar.Value = 100
         $backButton.Enabled = $true
         $nextButton.Enabled = $true
         $nextButton.Text = "Retry"
         $nextButton.Size = New-Object System.Drawing.Size(75, 23)
         $nextButton.Location = New-Object System.Drawing.Point(420, 67)
+        
+        # Show error dialog with troubleshooting tips
+        $troubleshootMsg = "Build failed. Common solutions:`n`n" +
+                          "1. Ensure Docker Desktop is fully started (wait 1-2 minutes after opening)`n" +
+                          "2. Check Docker Desktop Settings > Resources:`n" +
+                          "   - Allocate at least 4GB RAM`n" +
+                          "   - Allocate at least 2 CPUs`n" +
+                          "3. Restart Docker Desktop and try again`n" +
+                          "4. Check if ports 3000, 7070, 8080, 9090, 9095 are available`n" +
+                          "5. Try running as administrator`n`n" +
+                          "Check the output window for detailed error messages."
+        
+        [System.Windows.Forms.MessageBox]::Show(
+            $troubleshootMsg,
+            "Build Failed - Troubleshooting",
+            "OK",
+            "Warning"
+        ) | Out-Null
     }
 }
 
