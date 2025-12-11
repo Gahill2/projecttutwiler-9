@@ -1,21 +1,24 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import styles from './auth.module.css'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7070'
 
 export default function AuthPage() {
-  const [userId, setUserId] = useState<string | null>(null)
+  const [userId, setUserId] = useState(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     // Get or create demo user ID
-    let demoUserId = localStorage.getItem('demo_user_id')
-    if (!demoUserId) {
-      demoUserId = crypto.randomUUID()
-      localStorage.setItem('demo_user_id', demoUserId)
+    if (typeof window !== 'undefined') {
+      let demoUserId = window.localStorage.getItem('demo_user_id')
+      if (!demoUserId) {
+        demoUserId = crypto.randomUUID()
+        window.localStorage.setItem('demo_user_id', demoUserId)
+      }
+      setUserId(demoUserId)
     }
-    setUserId(demoUserId)
   }, [])
 
   const handleStartVerification = () => {
@@ -27,32 +30,23 @@ export default function AuthPage() {
   }
 
   return (
-    <main style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
-      <h1 style={{ marginBottom: '2rem' }}>Identity Verification</h1>
+    <main className={styles.main}>
+      <h1 className={styles.title}>Identity Verification</h1>
       
-      <div style={{ marginBottom: '2rem' }}>
+      <div className={styles.section}>
         <p>Click the button below to start the verification process.</p>
       </div>
 
       <button
         onClick={handleStartVerification}
         disabled={!userId || loading}
-        style={{
-          padding: '1rem 2rem',
-          fontSize: '1.1rem',
-          cursor: (!userId || loading) ? 'not-allowed' : 'pointer',
-          backgroundColor: '#0070f3',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          fontWeight: 'bold',
-        }}
+        className={styles.button}
       >
         {loading ? 'Starting...' : 'Start Verification'}
       </button>
 
       {userId && (
-        <div style={{ marginTop: '2rem', fontSize: '0.9rem', color: '#666' }}>
+        <div className={styles.userInfo}>
           <p>User ID: {userId}</p>
         </div>
       )}

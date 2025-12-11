@@ -55,13 +55,13 @@ fi
 if [ ! -f .env ]; then
     echo "[WARNING] .env file not found!"
     echo ""
-    if [ -f .env.backup ]; then
-        echo "Creating .env from .env.backup..."
-        cp .env.backup .env
+    if [ -f env.template ]; then
+        echo "Creating .env from env.template..."
+        cp env.template .env
         echo "[OK] Created .env file. Please edit it with your configuration."
         echo ""
     else
-        echo "[ERROR] .env.backup not found. Please create .env file manually."
+        echo "[ERROR] env.template not found. Please create .env file manually."
         exit 1
     fi
 fi

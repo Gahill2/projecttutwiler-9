@@ -196,7 +196,7 @@ $termsAccepted = $false
 
 # Check if first run (always show configuration step to create/update .env)
 function Check-FirstRun {
-    # Always show configuration step to ensure .env is always created/updated from .env.backup
+    # Always show configuration step to ensure .env is always created/updated from env.template
     $script:isFirstRun = $true
     $script:totalSteps = 6
     
@@ -600,19 +600,19 @@ function Show-PrerequisitesStep {
         # Use Get-Location to get current directory (more reliable than MyInvocation)
         $scriptDir = Get-Location | Select-Object -ExpandProperty Path
         $envFile = Join-Path $scriptDir ".env"
-        $envBackupFile = Join-Path $scriptDir ".env.backup"
+        $envTemplateFile = Join-Path $scriptDir "env.template"
         
         $progressBar.Value = 90
         $form.Refresh()
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 200
         
-        if (Test-Path $envBackupFile) {
-            Update-Component "Configuration File" "[OK] .env.backup found"
+        if (Test-Path $envTemplateFile) {
+            Update-Component "Configuration File" "[OK] env.template found"
             $statusText.Text = "All prerequisites are met. Ready to proceed."
         } else {
-            Update-Component "Configuration File" "[WARN] .env.backup not found"
-            $statusText.Text = ".env.backup file not found. It will be required in the Configuration step."
+            Update-Component "Configuration File" "[WARN] env.template not found"
+            $statusText.Text = "env.template file not found. It will be required in the Configuration step."
         }
     } catch {
         Update-Component "Configuration File" "[FAIL] Error"
@@ -654,36 +654,36 @@ function Show-ConfigureStep {
     
     $scriptDir = Get-Location | Select-Object -ExpandProperty Path
     $envFile = Join-Path $scriptDir ".env"
-    $envBackupFile = Join-Path $scriptDir ".env.backup"
+    $envTemplateFile = Join-Path $scriptDir "env.template"
     
-    # ALWAYS create/overwrite .env from .env.backup
+    # ALWAYS create/overwrite .env from env.template
     # This ensures the .env file is always fresh and matches the template
     
-    if (Test-Path $envBackupFile) {
+    if (Test-Path $envTemplateFile) {
         $progressBar.Value = 30
         $form.Refresh()
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 300
         
-        # Always copy .env.backup to .env - overwrite existing file
+        # Always copy env.template to .env - overwrite existing file
         # This ensures all team members have identical .env files with all variables
-        Update-Component ".env Configuration File" "[INFO] Creating/updating .env from .env.backup..."
+        Update-Component ".env Configuration File" "[INFO] Creating/updating .env from env.template..."
         $form.Refresh()
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 200
         
         # Direct file copy - preserves everything exactly (structure, values, comments, spacing)
         # Force overwrite if .env already exists
-        Copy-Item $envBackupFile $envFile -Force
+        Copy-Item $envTemplateFile $envFile -Force
         
         # Verify the copy was successful
         if (Test-Path $envFile) {
-            $backupLines = (Get-Content $envBackupFile).Count
+            $templateLines = (Get-Content $envTemplateFile).Count
             $envLines = (Get-Content $envFile).Count
-            if ($backupLines -eq $envLines) {
-                Update-Component ".env Configuration File" "[OK] Created/updated from .env.backup ($backupLines lines, all values preserved)"
+            if ($templateLines -eq $envLines) {
+                Update-Component ".env Configuration File" "[OK] Created/updated from env.template ($templateLines lines, all values preserved)"
             } else {
-                Update-Component ".env Configuration File" "[WARN] Copied but line count differs ($backupLines vs $envLines)"
+                Update-Component ".env Configuration File" "[WARN] Copied but line count differs ($templateLines vs $envLines)"
             }
         } else {
             Update-Component ".env Configuration File" "[FAIL] Copy failed"
@@ -691,7 +691,7 @@ function Show-ConfigureStep {
         Update-Component "API Keys" "[OK] All API keys copied"
         Update-Component "Environment Variables" "[OK] All variables copied (database URLs, API keys, etc.)"
         $progressBar.Value = 70
-        $statusText.Text = "Full .env file created/updated! All configuration values (database URLs, API keys, etc.) have been preserved from .env.backup."
+        $statusText.Text = "Full .env file created/updated! All configuration values (database URLs, API keys, etc.) have been preserved from env.template."
         $form.Refresh()
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 500
@@ -702,13 +702,13 @@ function Show-ConfigureStep {
                 "Full configuration file created for development!`n`n" +
                 "WHAT WAS CREATED:`n" +
                 "- Complete .env file with all configuration values`n" +
-                "- Database connection strings (from .env.backup)`n" +
+                "- Database connection strings (from env.template)`n" +
                 "- API keys and service configurations`n" +
                 "- VERIFIED_API_KEYS (shared dev key for team)`n`n" +
                 "IMPORTANT - DATABASE CONFIGURATION:`n" +
-                "- Database URLs (JAWSDB_URL, JAWSDB_NV_URL, JAWSDB_V_URL) are copied from .env.backup`n" +
+                "- Database URLs (JAWSDB_URL, JAWSDB_NV_URL, JAWSDB_V_URL) are copied from env.template`n" +
                 "- If database URLs are empty, services will start but database features won't work`n" +
-                "- Ensure .env.backup has correct database connection strings before running wizard`n" +
+                "- Ensure env.template has correct database connection strings before running wizard`n" +
                 "- Database connections are NOT automatically created - they must be configured manually`n`n" +
                 "SECURITY INFORMATION:`n" +
                 "- API keys are stored in .env file (NOT in database)`n" +
@@ -732,18 +732,18 @@ function Show-ConfigureStep {
         
         $progressBar.Value = 90
     } else {
-        # No template file exists - warn user they need .env.backup
+        # No template file exists - warn user they need env.template
         Update-Component ".env Configuration File" "[FAIL] No template found"
-        Update-Component "API Keys" "[WARN] Cannot create without .env.backup"
-        Update-Component "Environment Variables" "[FAIL] Missing .env.backup file"
+        Update-Component "API Keys" "[WARN] Cannot create without env.template"
+        Update-Component "Environment Variables" "[FAIL] Missing env.template file"
         $progressBar.Value = 100
-        $statusText.Text = "ERROR: .env.backup file is required!`n`nPlease ensure .env.backup exists in the project root with all required configuration values.`n`nThe wizard cannot create a proper .env file without this template."
+        $statusText.Text = "ERROR: env.template file is required!`n`nPlease ensure env.template exists in the project root with all required configuration values.`n`nThe wizard cannot create a proper .env file without this template."
         $form.Refresh()
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 500
         
         [System.Windows.Forms.MessageBox]::Show(
-            "Cannot create .env file!`n`nThe .env.backup file is required to create a proper configuration file.`n`nPlease ensure .env.backup exists in the project root with all required values.`n`nContact your team lead if you don't have this file.",
+            "Cannot create .env file!`n`nThe env.template file is required to create a proper configuration file.`n`nPlease ensure env.template exists in the project root with all required values.`n`nContact your team lead if you don't have this file.",
             "Missing Template File",
             "OK",
             "Error"
@@ -755,9 +755,9 @@ function Show-ConfigureStep {
     
     $progressBar.Value = 100
     
-    # Configuration complete - .env file always created/updated from .env.backup
+    # Configuration complete - .env file always created/updated from env.template
     if (Test-Path $envFile) {
-        $statusText.Text = "Configuration complete! .env file created/updated from .env.backup with all values."
+        $statusText.Text = "Configuration complete! .env file created/updated from env.template with all values."
     } else {
         $statusText.Text = "Configuration complete. .env file created."
     }
@@ -1183,7 +1183,7 @@ $nextButton.Add_Click({
             Start-Process "https://www.docker.com/products/docker-desktop"
             return
         }
-        # ALWAYS go to Configuration step to ensure .env is created/updated from .env.backup
+        # ALWAYS go to Configuration step to ensure .env is created/updated from env.template
         $script:currentStep = 3
         $script:isFirstRun = $true
         $script:totalSteps = 6

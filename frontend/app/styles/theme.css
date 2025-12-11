@@ -1,0 +1,47 @@
+/* Dark Theme Variables */
+:root {
+  --bg: #0a0a0a;
+  --bg-gradient: linear-gradient(180deg, #0a0a0a 0%, #111111 100%);
+  --surface: #161616;
+  --surface-hover: #1f1f1f;
+  --card: #1a1a1a;
+  --card-hover: #242424;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-hover: rgba(255, 255, 255, 0.2);
+  --text: #fafafa;
+  --text-muted: #a3a3a3;
+  --text-subtle: #737373;
+  
+  /* Primary colors (green for verified/admin) */
+  --primary: #10b981;
+  --primary-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --primary-hover: #34d399;
+  
+  /* Amber/yellow for non-verified */
+  --warning: #eab308;
+  --warning-gradient: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+  
+  /* Status colors */
+  --success: #16a34a;
+  --success-gradient: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  --danger: #ef4444;
+  --danger-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* Base styles */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg);
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+

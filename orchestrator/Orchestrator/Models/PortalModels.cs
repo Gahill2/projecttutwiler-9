@@ -6,6 +6,7 @@ public class PortalSubmitRequest
     public string? Role { get; set; }
     public string Problem { get; set; } = "";
     public string? ApiKey { get; set; }
+    public bool? SkipVerification { get; set; } // Skip AI verification for already-verified users
 }
 
 public class ApiKeyValidationRequest

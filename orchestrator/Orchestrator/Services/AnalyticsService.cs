@@ -63,6 +63,73 @@ public class AnalyticsService
         var pendingCveSubmissions = await _db.CveSubmissions.CountAsync(c => c.Status == "pending");
         var criticalCveSubmissions = await _db.CveSubmissions.CountAsync(c => c.Severity == "Critical");
 
+        // FAKE CVE DETECTION ANALYTICS
+        // Users with multiple submissions (potential spam)
+        var usersWithMultipleSubmissions = await _db.CveSubmissions
+            .GroupBy(c => c.UserId)
+            .Where(g => g.Count() > 1)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(20)
+            .ToListAsync();
+
+        // Users with high submission frequency (suspicious)
+        var highFrequencyUsers = await _db.CveSubmissions
+            .Where(c => c.CreatedAt >= last24Hours)
+            .GroupBy(c => c.UserId)
+            .Where(g => g.Count() >= 3) // 3+ submissions in 24h
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        // Duplicate/similar descriptions (potential fake CVEs)
+        var duplicateDescriptions = await _db.CveSubmissions
+            .GroupBy(c => c.Description.ToLower().Trim())
+            .Where(g => g.Count() > 1)
+            .Select(g => new { Description = g.Key, Count = g.Count(), UserIds = g.Select(c => c.UserId).Distinct().Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(20)
+            .ToListAsync();
+
+        // Non-verified users with many submissions (suspicious)
+        var suspiciousNonVerified = await _db.CveSubmissions
+            .Where(c => !c.IsVerifiedUser)
+            .GroupBy(c => c.UserId)
+            .Where(g => g.Count() >= 2)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(20)
+            .ToListAsync();
+
+        // Recent submissions by time (detect bot patterns)
+        var recentSubmissionsByHour = await _db.CveSubmissions
+            .Where(c => c.CreatedAt >= last24Hours)
+            .GroupBy(c => new { Hour = c.CreatedAt.Hour, UserId = c.UserId })
+            .Where(g => g.Count() >= 2) // Multiple submissions in same hour
+            .Select(g => new { g.Key.Hour, g.Key.UserId, Count = g.Count() })
+            .ToListAsync();
+
+        // Low-quality submissions (very short descriptions)
+        var lowQualitySubmissions = await _db.CveSubmissions
+            .Where(c => c.Description.Length < 50)
+            .CountAsync();
+
+        // Submissions with generic/test descriptions
+        var genericDescriptions = await _db.CveSubmissions
+            .Where(c => c.Description.ToLower().Contains("test") || 
+                       c.Description.ToLower().Contains("fake") ||
+                       c.Description.ToLower().Contains("asdf") ||
+                       c.Description.ToLower().Contains("qwerty") ||
+                       c.Description.Length < 20)
+            .CountAsync();
+
+        // User submission timeline (last 7 days)
+        var submissionsByDay = await _db.CveSubmissions
+            .Where(c => c.CreatedAt >= last7Days)
+            .GroupBy(c => c.CreatedAt.Date)
+            .Select(g => new { Date = g.Key, Count = g.Count() })
+            .OrderBy(x => x.Date)
+            .ToListAsync();
+
         return new AnalyticsData
         {
             TotalUsers = totalUsers,
@@ -82,7 +149,36 @@ public class AnalyticsService
             TotalCveSubmissions = totalCveSubmissions,
             VerifiedCveSubmissions = verifiedCveSubmissions,
             PendingCveSubmissions = pendingCveSubmissions,
-            CriticalCveSubmissions = criticalCveSubmissions
+            CriticalCveSubmissions = criticalCveSubmissions,
+            // Fake CVE Detection Stats
+            UsersWithMultipleSubmissions = usersWithMultipleSubmissions.Select(u => new UserSubmissionCount
+            {
+                UserId = u.UserId.ToString(),
+                SubmissionCount = u.Count
+            }).ToList(),
+            HighFrequencyUsers = highFrequencyUsers.Select(u => new UserSubmissionCount
+            {
+                UserId = u.UserId.ToString(),
+                SubmissionCount = u.Count
+            }).ToList(),
+            DuplicateDescriptions = duplicateDescriptions.Select(d => new DuplicateDescription
+            {
+                Description = d.Description,
+                Count = d.Count,
+                UniqueUsers = d.UserIds
+            }).ToList(),
+            SuspiciousNonVerifiedUsers = suspiciousNonVerified.Select(u => new UserSubmissionCount
+            {
+                UserId = u.UserId.ToString(),
+                SubmissionCount = u.Count
+            }).ToList(),
+            LowQualitySubmissions = lowQualitySubmissions,
+            GenericSubmissions = genericDescriptions,
+            SubmissionsByDay = submissionsByDay.Select(s => new DailySubmission
+            {
+                Date = s.Date,
+                Count = s.Count
+            }).ToList()
         };
     }
 }
@@ -102,6 +198,14 @@ public class AnalyticsData
     public int VerifiedCveSubmissions { get; set; }
     public int PendingCveSubmissions { get; set; }
     public int CriticalCveSubmissions { get; set; }
+    // Fake CVE Detection
+    public List<UserSubmissionCount> UsersWithMultipleSubmissions { get; set; } = new();
+    public List<UserSubmissionCount> HighFrequencyUsers { get; set; } = new();
+    public List<DuplicateDescription> DuplicateDescriptions { get; set; } = new();
+    public List<UserSubmissionCount> SuspiciousNonVerifiedUsers { get; set; } = new();
+    public int LowQualitySubmissions { get; set; }
+    public int GenericSubmissions { get; set; }
+    public List<DailySubmission> SubmissionsByDay { get; set; } = new();
 }
 
 public class RecentVerification
@@ -109,5 +213,24 @@ public class RecentVerification
     public string UserId { get; set; } = "";
     public DateTime CreatedAt { get; set; }
     public string? ScoreBin { get; set; }
+}
+
+public class UserSubmissionCount
+{
+    public string UserId { get; set; } = "";
+    public int SubmissionCount { get; set; }
+}
+
+public class DuplicateDescription
+{
+    public string Description { get; set; } = "";
+    public int Count { get; set; }
+    public int UniqueUsers { get; set; }
+}
+
+public class DailySubmission
+{
+    public DateTime Date { get; set; }
+    public int Count { get; set; }
 }
 

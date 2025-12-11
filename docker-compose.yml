@@ -3,14 +3,33 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      cache_from:
+        - node:20-alpine
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+      - TURBOPACK=0
+    working_dir: /app
     env_file:
       - .env
+    volumes:
+      # Mount source code for hot reloading
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     depends_on:
       - api-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   api-gateway:
     build:
@@ -29,6 +48,14 @@ services:
       - orchestrator
       - cve-ingestor
       - ai-rag
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   orchestrator:
     build:
@@ -39,16 +66,19 @@ services:
     environment:
       - JAWSDB_URL=${JAWSDB_URL}
       - PUBLIC_WEB_ORIGIN=${PUBLIC_WEB_ORIGIN}
-      - VERIFY_PROVIDER=${VERIFY_PROVIDER}
-      - PERSONA_CLIENT_ID=${PERSONA_CLIENT_ID}
-      - PERSONA_CLIENT_SECRET=${PERSONA_CLIENT_SECRET}
-      - PERSONA_REDIRECT_URI=${PERSONA_REDIRECT_URI}
-      - PERSONA_ENV=${PERSONA_ENV}
       - AI_RAG_URL=http://ai-rag:9090
       - ETL_NV_URL=http://etl-nv:9101
       - ETL_V_URL=http://etl-v:9102
     env_file:
       - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   ai-rag:
     build:
@@ -69,6 +99,14 @@ services:
       - .env
     depends_on:
       - ollama
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   etl-nv:
     build:
@@ -80,6 +118,14 @@ services:
       - JAWSDB_NV_URL=${JAWSDB_NV_URL}
     env_file:
       - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   etl-v:
     build:
@@ -91,6 +137,14 @@ services:
       - JAWSDB_V_URL=${JAWSDB_V_URL}
     env_file:
       - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   ollama:
     image: ollama/ollama:latest
@@ -98,6 +152,14 @@ services:
       - "11434:11434"
     volumes:
       - ollama_cache:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
     # Optional: comment out if using local Ollama desktop app
 
   cve-ingestor:
@@ -112,21 +174,19 @@ services:
       - PINECONE_API_KEY=${PINECONE_API_KEY}
       - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
       - PINECONE_INDEX=${PINECONE_INDEX}
-      - NVD_API_BASE=${NVD_API_BASE}
-      - NVD_API_KEY=${NVD_API_KEY}
-      - CISA_KEV_JSON=${CISA_KEV_JSON}
-      - OSV_API_BASE=${OSV_API_BASE}
-      - OSV_ENABLED=${OSV_ENABLED}
-      - CVE_REFRESH_WINDOW_DAYS=${CVE_REFRESH_WINDOW_DAYS}
-      - CVE_AUTORUN=${CVE_AUTORUN}
-      - SENTRY_DSN=${SENTRY_DSN}
-      - APP_ENV=${APP_ENV}
-      - GIT_SHA=${GIT_SHA}
     env_file:
       - .env
     depends_on:
       - ai-rag
       - ollama
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
 volumes:
   ollama_cache:

@@ -14,7 +14,7 @@ The main entry point is `start.bat`, which launches `startup-wizard.ps1`. **This
 - **Step-by-step wizard interface** - Professional installer look and feel
 - **Terms & Conditions** - User acceptance step
 - **Prerequisites checking** - Automatically verifies Docker installation and status
-- **Configuration** - Always creates/updates `.env` file from `.env.backup` template
+- **Configuration** - Always creates/updates `.env` file from `env.template` template
 - **Service status** - Checks if all services are running
 - **Service startup** - Builds and starts all Docker services (including Ollama)
 - **Ollama model pulling** - Automatically pulls required models
@@ -32,7 +32,7 @@ start.bat
 
 This launches the GUI wizard which handles:
 - ✅ Automatic Docker Desktop startup (if closed)
-- ✅ Always creates/updates `.env` from `.env.backup` (fresh config every time)
+- ✅ Always creates/updates `.env` from `env.template` (fresh config every time)
 - ✅ Prerequisite verification (Docker, Docker Compose)
 - ✅ Service startup and monitoring (all 8 services including Ollama)
 - ✅ Automatic Ollama model pulling
@@ -47,7 +47,7 @@ This launches the GUI wizard which handles:
    - Docker service status
    - Docker Compose availability
    - `.env` configuration file
-4. **Configuration** - Always creates/updates `.env` file from `.env.backup` template (ensures fresh configuration every time)
+4. **Configuration** - Always creates/updates `.env` file from `env.template` template (ensures fresh configuration every time)
 5. **Check Services** - Verifies all 8 services are running
 6. **Start Services** - Builds and starts all Docker services (if needed)
 7. **Complete** - Shows completion message with links to open pages
@@ -72,10 +72,10 @@ chmod +x *.sh
 
 ## Environment File Template
 
-The wizard uses `.env.backup` as a template to create `.env` files for developers. This file is tracked in git so all team members get the same configuration structure.
+The wizard uses `env.template` as a template to create `.env` files for developers. This file is tracked in git (no leading dot, so it's not ignored) so all team members get the same configuration structure.
 
 **Important:** 
-- `.env.backup` is a template with placeholder values
+- `env.template` is a template with placeholder values (committed to git)
 - `.env` (created by wizard) is gitignored and contains actual secrets
 - Each developer gets their own `.env` file during setup
 

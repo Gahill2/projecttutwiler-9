@@ -23,33 +23,81 @@ Project Tutwiler provides a secure, AI-driven portal where users can submit secu
 - **Multi-Database Isolation**: Separate databases for verified/non-verified users for security
 - **One-Command Setup**: Single GUI wizard handles everything - Docker, configuration, and service startup
 
+## 📋 Prerequisites
+
+**IMPORTANT: Docker Desktop must be installed before running the setup wizard.**
+
+### Required Software
+
+1. **Docker Desktop** (Required)
+   - **Windows**: Download from [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop)
+   - **Mac**: Download from [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop)
+   - **Linux**: Install Docker Engine and Docker Compose
+     ```bash
+     # Ubuntu/Debian
+     sudo apt-get update
+     sudo apt-get install docker.io docker-compose
+     sudo systemctl start docker
+     sudo systemctl enable docker
+     ```
+
+2. **Git** (Optional, for cloning the repository)
+   - Usually pre-installed on Mac/Linux
+   - Windows: Download from [https://git-scm.com/downloads](https://git-scm.com/downloads)
+
+### System Requirements
+
+- **RAM**: Minimum 8GB (16GB recommended for Ollama models)
+- **Disk Space**: At least 10GB free (for Docker images and Ollama models)
+- **OS**: Windows 10/11, macOS 10.15+, or Linux (Ubuntu 20.04+, Debian 11+, etc.)
+
+### What the Wizard Does NOT Install
+
+The wizard **cannot** automatically install Docker Desktop. You must:
+1. ✅ Install Docker Desktop manually first
+2. ✅ Start Docker Desktop (the wizard can start it if it's installed but not running)
+3. ✅ Then run the setup wizard
+
+The wizard **will**:
+- ✅ Detect if Docker is installed
+- ✅ Start Docker Desktop if it's installed but not running
+- ✅ Create/update `.env` file from `env.template`
+- ✅ Check all prerequisites
+- ✅ Start all services
+- ✅ Pull Ollama models automatically
+
 ## 🚀 Quick Start
 
-### One-Command Setup & Start - Everything in One Place!
+### Step 1: Install Docker Desktop
+
+**Before running the wizard, ensure Docker Desktop is installed:**
+
+- **Windows/Mac**: Download and install from [https://www.docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop)
+- **Linux**: Install Docker Engine (see Prerequisites above)
+
+### Step 2: Run the Setup Wizard
 
 **Windows:**
-1. **Run the startup wizard (that's it!):**
-   ```bash
-   start.bat
-   ```
-   This single command opens a GUI wizard that handles **EVERYTHING**:
-   - ✅ Automatically starts Docker Desktop if needed
-   - ✅ Creates/updates `.env` file from `.env.backup` template
-   - ✅ Checks all prerequisites (Docker, Docker Compose)
-   - ✅ Starts all services (Frontend, API Gateway, Orchestrator, AI-RAG, CVE Ingestor, ETL services, Ollama)
-   - ✅ Automatically pulls Ollama models
-   - ✅ Shows real-time status of all services
-   - ✅ Provides links to open Frontend and Admin pages
-   - ✅ Professional Windows installer interface
-   
-   **No separate setup steps needed - the wizard does it all!**
+```bash
+start.bat
+```
+This opens a GUI wizard that:
+- ✅ Checks if Docker Desktop is installed (will guide you if missing)
+- ✅ Automatically starts Docker Desktop if needed
+- ✅ Creates/updates `.env` file from `env.template` template
+- ✅ Checks all prerequisites (Docker, Docker Compose)
+- ✅ Starts all services (Frontend, API Gateway, Orchestrator, AI-RAG, CVE Ingestor, ETL services, Ollama)
+- ✅ Automatically pulls Ollama models
+- ✅ Shows real-time status of all services
+- ✅ Provides links to open Frontend and Admin pages
+- ✅ Professional Windows installer interface
 
 **Mac/Linux:**
 ```bash
 # Make scripts executable (first time only)
 chmod +x *.sh
 
-# Run setup (creates .env from .env.backup)
+# Run setup (creates .env from env.template)
 ./setup.sh
 
 # Start services
@@ -61,16 +109,20 @@ chmod +x *.sh
 
 **Note:** The GUI wizard (`startup-wizard.ps1`) is **Windows-only** (uses PowerShell Windows Forms). Mac/Linux users use the command-line scripts above. Both methods create the same `.env` file and start the same Docker services.
 
-### Manual Setup (Alternative)
+### What Happens If Docker Is Not Installed?
 
-If you prefer manual setup, see the [Detailed Setup Guide](docs/README.md).
+**Windows Wizard:**
+- The wizard will detect that Docker Desktop is missing
+- It will show a clear error message
+- It will provide a button to open the Docker Desktop download page
+- **You must install Docker Desktop manually, then run the wizard again**
 
-## 📋 Prerequisites
+**Mac/Linux Scripts:**
+- Scripts will check for Docker and show an error if missing
+- You must install Docker Engine/Docker Desktop manually
+- Then run the scripts again
 
-- **Docker Desktop** - The installer will check and help you install if missing
-- **Git** - For cloning the repository
-- **(Optional) Database** - External MySQL/JawsDB for production use
-- **(Optional) API Keys** - For enhanced features
+**Important:** The wizard/scripts **cannot** install Docker automatically. Docker Desktop must be installed as a separate step before running the setup.
 
 ## 🎮 Available Scripts
 
@@ -176,7 +228,7 @@ The AI uses the same analysis for all users - it doesn't change based on verific
 **Demo API Keys (For Testing):**
 - `demo-verified-key-123` - Verified user access
 - `demo-admin-key-123` - Admin dashboard access
-- These are set in `.env.backup` for team testing
+- These are set in `env.template` for team testing
 - **Important:** Change these in production!
 
 **Usage:**
@@ -213,46 +265,24 @@ The AI uses the same analysis for all users - it doesn't change based on verific
 - ✅ One-click setup with `start.bat`
 - ✅ Professional installer-style interface
 - ✅ Real-time service status monitoring
-
-### Mac/Linux
-- ✅ **Command-line scripts** (`setup.sh`, `start.sh`)
-- ✅ Same functionality as Windows wizard (just CLI instead of GUI)
-- ✅ Manual Docker startup required (Docker Desktop must be running)
-- ⚠️ GUI wizard is Windows-only (uses PowerShell Windows Forms)
-
-**Important:** All platforms use the **same Docker containers**, so the application behavior is identical. Only the setup/startup process differs:
-- Windows: GUI wizard handles everything
-- Mac/Linux: Scripts do the same thing via command line
-
-The setup wizard will work on **any Windows machine** with:
-- PowerShell 5.1+ (included with Windows 10/11)
-- Docker Desktop installed
-- No additional dependencies needed
-
-## 🖥️ Platform Compatibility
-
-### Windows
-- ✅ **Full GUI wizard support** (`startup-wizard.ps1`)
-- ✅ Automatic Docker Desktop startup detection and launch
-- ✅ One-click setup with `start.bat`
-- ✅ Professional installer-style interface
-- ✅ Real-time service status monitoring
 - ✅ Works on any Windows 10/11 machine with PowerShell (included)
+- ⚠️ **Requires Docker Desktop to be installed first** (wizard will guide you if missing)
 
 ### Mac/Linux
 - ✅ **Command-line scripts** (`setup.sh`, `start.sh`)
 - ✅ Same functionality as Windows wizard (CLI instead of GUI)
 - ✅ Manual Docker startup required (Docker Desktop must be running)
 - ⚠️ GUI wizard is Windows-only (uses PowerShell Windows Forms)
+- ⚠️ **Requires Docker Engine/Docker Desktop to be installed first**
 
 **Important:** All platforms use the **same Docker containers**, so the application behavior is identical. Only the setup/startup process differs:
-- **Windows:** GUI wizard handles everything automatically
-- **Mac/Linux:** Scripts do the same thing via command line
+- **Windows:** GUI wizard handles everything automatically (after Docker is installed)
+- **Mac/Linux:** Scripts do the same thing via command line (after Docker is installed)
 
-The setup wizard will work on **any Windows machine** with:
-- PowerShell 5.1+ (included with Windows 10/11)
-- Docker Desktop installed
-- No additional dependencies needed
+**Setup Requirements:**
+- Docker Desktop installed (Windows/Mac) or Docker Engine (Linux)
+- PowerShell 5.1+ (Windows only, included with Windows 10/11)
+- No other dependencies needed - everything else runs in Docker containers
 
 ## 📊 API Endpoints
 
@@ -320,6 +350,23 @@ projecttutwiler-9/
 ├── start.sh             # Start services (Mac/Linux)
 └── scripts/             # Utility scripts
 ```
+
+## 🔧 Error Handling
+
+The application includes comprehensive error handling:
+- **Frontend**: All API calls have try-catch blocks with user-friendly error messages
+- **Backend**: All endpoints have exception handling with proper HTTP status codes
+- **Network Errors**: Automatic retry logic and timeout handling
+- **AI Service**: Graceful degradation when AI services are unavailable
+
+## 🌍 Cross-Device Compatibility
+
+The project is designed to work on any device:
+- ✅ Uses relative paths (no hardcoded Windows/Mac paths)
+- ✅ Docker Compose ensures consistent environments
+- ✅ All scripts work on Windows, Mac, and Linux
+- ✅ Environment variables for all configuration
+- ✅ No platform-specific dependencies
 
 ## 🤝 Contributing
 

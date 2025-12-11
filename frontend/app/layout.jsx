@@ -1,17 +1,12 @@
-import type { Metadata } from 'next'
 import './globals.css'
 import { SentryProvider } from '../components/SentryProvider'
 
-export const metadata: Metadata = {
+export const metadata = {
   title: 'Project Tutwiler',
   description: 'Project Tutwiler Frontend',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>

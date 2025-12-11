@@ -129,7 +129,7 @@ public class VerificationService
         return allValidKeys.Contains(apiKey);
     }
 
-    public async Task<PortalSubmissionResult> ProcessPortalSubmission(string name, string role, string problem, string? apiKey = null)
+    public async Task<PortalSubmissionResult> ProcessPortalSubmission(string name, string role, string problem, string? apiKey = null, bool skipVerification = false)
     {
         var userId = Guid.NewGuid();
         string status;
@@ -144,36 +144,73 @@ public class VerificationService
             reasonCodes = new List<string> { "api_key_authenticated", "privileged_access" };
             scoreBin = "1.0-1.0"; // Maximum confidence for API key auth
         }
+        else if (skipVerification)
+        {
+            // Skip AI verification for already-verified users (fast path)
+            status = "verified";
+            reasonCodes = new List<string> { "already_verified", "skip_ai_verification" };
+            scoreBin = "1.0-1.0"; // Maximum confidence for verified users
+        }
         else
         {
             // Normal AI-based verification flow
             // Build analysis text with user identity and problem
             var analysisText = $"User: {name}\nRole: {role}\nProblem: {problem}";
             
-            // Call AI-RAG service to analyze
+            // Call AI-RAG service to analyze with timeout handling
             var analyzeRequest = new
             {
                 text = analysisText,
                 top_k = 5
             };
             
-            var analyzeResponse = await _httpClient.PostAsJsonAsync($"{_aiRagUrl}/analyze", analyzeRequest);
-            if (!analyzeResponse.IsSuccessStatusCode)
+            try
             {
-                var errorContent = await analyzeResponse.Content.ReadAsStringAsync();
-                throw new Exception($"AI-RAG service returned {analyzeResponse.StatusCode}: {errorContent}");
+                // Use cancellation token with shorter timeout for faster response
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)); // 10 second timeout - fail fast
+                var analyzeResponse = await _httpClient.PostAsJsonAsync($"{_aiRagUrl}/analyze", analyzeRequest, cts.Token);
+                
+                if (!analyzeResponse.IsSuccessStatusCode)
+                {
+                    var errorContent = await analyzeResponse.Content.ReadAsStringAsync();
+                    // If AI service fails, default to non-verified but don't throw
+                    status = "non_verified";
+                    reasonCodes = new List<string> { "ai_analysis_failed", "default_non_verified" };
+                    scoreBin = "0.0-0.5";
+                }
+                else
+                {
+                    var analyzeResult = await analyzeResponse.Content.ReadFromJsonAsync<AiRagAnalysisResult>();
+                    if (analyzeResult == null)
+                    {
+                        status = "non_verified";
+                        reasonCodes = new List<string> { "analysis_result_null", "default_non_verified" };
+                        scoreBin = "0.0-0.5";
+                    }
+                    else
+                    {
+                        status = analyzeResult.Decision == "verified" ? "verified" : "non_verified";
+                        reasonCodes = analyzeResult.ReasonCodes ?? new List<string> { "analysis_complete" };
+                        scoreBin = analyzeResult.ScoreBin;
+                    }
+                }
             }
-            analyzeResponse.EnsureSuccessStatusCode();
-            
-            var analyzeResult = await analyzeResponse.Content.ReadFromJsonAsync<AiRagAnalysisResult>();
-            if (analyzeResult == null)
+            catch (TaskCanceledException)
             {
-                throw new Exception("Failed to get analysis result");
+                // Timeout - default to non-verified
+                status = "non_verified";
+                reasonCodes = new List<string> { "ai_analysis_timeout", "default_non_verified" };
+                scoreBin = "0.0-0.5";
             }
-            
-            status = analyzeResult.Decision == "verified" ? "verified" : "non_verified";
-            reasonCodes = analyzeResult.ReasonCodes ?? new List<string> { "analysis_complete" };
-            scoreBin = analyzeResult.ScoreBin;
+            catch (Exception ex)
+            {
+                // Any other error - default to non-verified
+                status = "non_verified";
+                reasonCodes = new List<string> { "ai_analysis_error", "default_non_verified" };
+                scoreBin = "0.0-0.5";
+                // Log but don't throw
+                Console.WriteLine($"AI analysis error (non-fatal): {ex.Message}");
+            }
         }
         
         // Create user record in main database
@@ -257,5 +294,6 @@ public class PortalSubmissionResult
     public string Decision { get; set; } = "non_verified";
     public string? ScoreBin { get; set; }
     public List<string>? ReasonCodes { get; set; }
+    public string? SubmissionId { get; set; }
 }
 

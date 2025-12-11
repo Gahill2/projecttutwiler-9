@@ -109,7 +109,7 @@ builder.Services.AddScoped<VerificationService>(sp =>
     var db = sp.GetRequiredService<AppDb>();
     var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
     var httpClient = httpClientFactory.CreateClient();
-    httpClient.Timeout = TimeSpan.FromMinutes(2); // Increase timeout for AI analysis
+    httpClient.Timeout = TimeSpan.FromMinutes(5); // Increase timeout for AI analysis (5 minutes)
     return new VerificationService(db, verifier, modelVersion, httpClient);
 });
 
@@ -186,6 +186,7 @@ app.MapGet("/auth/start", async (HttpContext context, VerificationService verifi
     catch (Exception ex)
     {
         // Log error without PII
+        Console.WriteLine($"Verification start error: {ex.GetType().Name}: {ex.Message}");
         return Results.StatusCode(500);
     }
 });
@@ -205,6 +206,7 @@ app.MapGet("/auth/callback", async (
     catch (Exception ex)
     {
         // Log error without PII
+        Console.WriteLine($"Verification callback error: {ex.GetType().Name}: {ex.Message}");
         return Results.Redirect($"{publicWebOrigin}/auth/result?status=non_verified");
     }
 });
@@ -267,7 +269,8 @@ app.MapPost("/portal/validate-api-key", async (
 // Portal submission endpoint
 app.MapPost("/portal/submit", async (
     HttpContext context,
-    VerificationService verificationService) =>
+    VerificationService verificationService,
+    AppDb db) =>
 {
     try
     {
@@ -277,12 +280,63 @@ app.MapPost("/portal/submit", async (
             return Results.BadRequest(new { error = "Problem description is required" });
         }
 
+        // Check if this is a verified user submission (from verified dashboard)
+        // Verified users send specific name/role patterns
+        var isVerifiedSubmission = (request.Name == "Verified User" && request.Role == "Verified Security Professional") 
+                                   || request.SkipVerification == true;
+
         var result = await verificationService.ProcessPortalSubmission(
             request.Name ?? "",
             request.Role ?? "",
             request.Problem,
-            request.ApiKey
+            request.ApiKey,
+            skipVerification: isVerifiedSubmission
         );
+
+        // Also create a CVE submission record so it appears in admin dashboard
+        if (Guid.TryParse(result.UserId, out var userId))
+        {
+            var user = await db.AppUsers.FirstOrDefaultAsync(u => u.UserId == userId);
+            var isVerified = user != null && user.Status == "verified";
+
+            // Determine severity - default to Low for non-verified submissions
+            var severity = "Low";
+            if (isVerified && !string.IsNullOrEmpty(result.ScoreBin))
+            {
+                // Parse score bin to determine severity
+                var scoreRange = result.ScoreBin.Split('-');
+                if (scoreRange.Length == 2 && 
+                    decimal.TryParse(scoreRange[0], out var minScore) && 
+                    decimal.TryParse(scoreRange[1], out var maxScore))
+                {
+                    var avgScore = (minScore + maxScore) / 2 * 10; // Convert to CVSS scale
+                    if (avgScore >= 9.0m) severity = "Critical";
+                    else if (avgScore >= 7.0m) severity = "High";
+                    else if (avgScore >= 4.0m) severity = "Moderate";
+                }
+            }
+
+            // Create CVE submission record
+            var submission = new Models.CveSubmission
+            {
+                SubmissionId = Guid.NewGuid(),
+                UserId = userId,
+                Description = request.Problem,
+                Severity = severity,
+                CvssScore = null, // Will be calculated later if needed
+                Status = "pending",
+                IsVerifiedUser = isVerified,
+                SimilarCvesJson = null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            db.CveSubmissions.Add(submission);
+            await db.SaveChangesAsync();
+
+            // Add submission_id to result
+            result.SubmissionId = submission.SubmissionId.ToString();
+        }
 
         return Results.Ok(result);
     }
