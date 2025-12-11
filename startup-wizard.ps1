@@ -1064,12 +1064,28 @@ function Show-StartServicesStep {
         $output = $outputBuilder.ToString()
         $errorOutput = $errorBuilder.ToString()
         
-        # Show final output
-        $statusTextBox.Text = $output
+        # Show final output summary
+        $statusTextBox.AppendText("`r`n`r`n=== Build Process Completed ===`r`n")
+        $statusTextBox.AppendText("Exit code: $exitCode`r`n")
+        $statusTextBox.AppendText("Output length: $($output.Length) characters`r`n")
         if ($errorOutput) {
-            $statusTextBox.AppendText("`r`n--- ERRORS ---`r`n")
-            $statusTextBox.AppendText($errorOutput)
+            $statusTextBox.AppendText("Error output length: $($errorOutput.Length) characters`r`n")
         }
+        $statusTextBox.AppendText("`r`n")
+        
+        # Show full output if we have it
+        if ($output) {
+            $statusTextBox.AppendText("--- FULL OUTPUT ---`r`n")
+            $statusTextBox.AppendText($output)
+            $statusTextBox.AppendText("`r`n")
+        }
+        
+        if ($errorOutput) {
+            $statusTextBox.AppendText("`r`n--- ERROR OUTPUT ---`r`n")
+            $statusTextBox.AppendText($errorOutput)
+            $statusTextBox.AppendText("`r`n")
+        }
+        
         $statusTextBox.SelectionStart = $statusTextBox.Text.Length
         $statusTextBox.ScrollToCaret()
         $form.Refresh()
